@@ -10,7 +10,7 @@ each other directly via their various and often broken home routers.
 
 The MIT License (MIT)
 
-Copyright (c) 2014 Chris Luke <chrisy@flirble.org>
+Copyright (c) 2014 Chris Luke
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -52,7 +52,7 @@ Fedora package names:
 
 The runtime syntax is along the lines of:
 
-> ./client --server=<ip address> --port=<port number> --debug
+> ./client --server=[ip address] --port=[port number] --debug
 
 Debug defaults to off, which isn't very interesting at the moment.
 Address and port default to the localhost and port 23456.
@@ -61,7 +61,7 @@ Address and port default to the localhost and port 23456.
 
 The runtime syntax is along the lines of:
 
-> ./server --server=<ip address> --port=<port number> --debug
+> ./server --server=[ip address] --port=[port number] --debug
 
 Debug defaults to off, which isn't very interesting at the moment.
 Address and port default to the binding to any address and listening
