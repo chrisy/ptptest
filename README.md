@@ -205,9 +205,13 @@ and port number.
 * The client should summarize the clients it talks to as well as those
   it expects to hear from but doesn't.
 
-* Optionally have the client tell the server about the client it was and
+* Optionally have the client tell the server about the clients it was and
   was not able to communicate with.
 
-* Have the server summarize it analytics, perhaps publishing a web page
+* Have the server summarize its analytics, perhaps publishing a web page
   for it.
+
+* We have checksums. We should probably check them!
+
+* Distribute 'binary' versions for Win32 and MacOS/X.
 
