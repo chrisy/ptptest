@@ -1,8 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: latin-1 -*-
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
 # Scavenged from https://bitbucket.org/techtonik/hexdump/
 # Placed into public domain by anatoly techtonik <techtonik@gmail.com>
-# -*- coding: latin-1 -*-
 """
 1. Dump binary data to the following text format:
 
