@@ -24,24 +24,24 @@
 #     SOFTWARE.
 #
 
-import sys
-from cx_Freeze import setup, Executable
+from setuptools import setup, find_packages
+
 from ptptest import __version__
 
-# Dependencies are automatically detected, but it might need fine tuning.
-build_exe_options = {
-    "packages": ["os"],
-    "excludes": ["tkinter"],
-}
+packages = find_packages()
 
-setup(  name = "ptptest",
-        version = __version__
-        description = "Point-to-point UDP tester",
-        options = {"build_exe": build_exe_options},
-        
-        executables = [
-                Executable("client"),
-                Executable("server"),
-        ],
+setup(
+    name="ptptest",
+    version=__version__,
+    description="Point-to-point UDP tester",
+    author="Chris Luke",
+    author_email='chrisy@flirble.org',
+    packages=packages,
+    include_package_data = True,
+    scripts = ['ptpserver', 'ptpclient'],
+    url = 'https://github.com/chrisy/ptptest',
+
+    package_data = {
+        'ptptest': []
+    },
 )
-

@@ -58,7 +58,7 @@ FreeBSD port names:
 
 The runtime syntax is along the lines of:
 
-> ./client --server=[ip address] --port=[port number] --debug
+> ./ptpclient --server=[ip address] --port=[port number] --debug
 
 Debug defaults to off, which isn't very interesting at the moment.
 Address and port default to the localhost and port 23456.
@@ -67,7 +67,7 @@ Address and port default to the localhost and port 23456.
 
 The runtime syntax is along the lines of:
 
-> ./server --server=[ip address] --port=[port number] --debug
+> ./ptpserver --server=[ip address] --port=[port number] --debug
 
 Debug defaults to off, which isn't very interesting at the moment.
 Address and port default to the binding to any address and listening

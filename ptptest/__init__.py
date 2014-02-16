@@ -6,6 +6,8 @@
 PTP Mesh
 """
 
+__version__ = "0.1"
+
 from protocol import *
 from client import *
 from server import *
