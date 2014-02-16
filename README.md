@@ -12,7 +12,7 @@ The client and server are written in Python and should run on most
 platforms. It has some dependencies:
 
 Python packages:
-    dpkt eventlet ipy
+    dpkt eventlet IPy
 
 Ubuntu package names:
     sudo apt-get install -y python-dpkt python-eventlet python-ipy
@@ -125,7 +125,7 @@ and port number.
 | 9          | Unsigned integer   | "Your" timestamp
 | 32         | Address            | PTP address
 | 33         | Address            | Internal address
-| 34         | Unsigned integer  | uPNP used
+| 34         | Unsigned integer   | uPNP used
 | 64         | Address            | Client list entry
 
 
