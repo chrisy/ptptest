@@ -35,8 +35,10 @@ debug = False
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="PTP Mesh Client")
-    p.add_argument('-s', '--server', metavar='<address>', type=str, help="The address of the server")
-    p.add_argument('-p', '--port', metavar='<port>', type=int, help="The port to use on the server")
+    p.add_argument('-s', '--server', metavar='<address>', type=str,
+            help="The address of the server", default="127.0.0.1")
+    p.add_argument('-p', '--port', metavar='<port>', type=int,
+            help="The port to use on the server", default="23456")
 
     p.add_argument('-d', '--debug', action='store_true', help="Enable debugging output")
 
