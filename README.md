@@ -129,9 +129,11 @@ For our system we will do a simple checksum.
 # The protocol.
 
 This protocol is entirely UDP based and tries to keep every message
-within the size of the MTU of the gemeral internet, 1500 bytes, to
-limit fragmentation. UDP is considered unreliable and packet
-fragmentation would only increase the chances of data loss.
+within the size of the de facto MTU of the general internet, 1500 bytes,
+to limit fragmentation. To further ameliorate common MTU issues, for
+example as a result of PPPoE encapsulation, we limit our packet sizes to
+1400 bytes. UDP is considered unreliable and packet fragmentation would
+only increase the chances of data loss.
 
 ## Header.
 
