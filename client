@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+"""
+PTP Mesh Client
+"""
+
+import ptptest, argparse
+
+global debug
+debug = False
+
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser(description="PTP Mesh Client")
+    p.add_argument('-s', '--server', metavar='<address>', type=str, help="The address of the server")
+    p.add_argument('-p', '--port', metavar='<port>', type=int, help="The port to use on the server")
+
+    p.add_argument('-d', '--debug', action='store_true', help="Enable debugging output")
+
+    args = p.parse_args()
+    debug = args.debug
+    client = ptptest.Client(args)
+    client.run()
