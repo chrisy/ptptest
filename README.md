@@ -2,7 +2,7 @@
 
 This is a simple tool to test some basic and common point-to-point
 network protocol techniques. Ostensibly this is to test the various
-ways that peers in a ptp mesh can discover and communicate with
+ways that peers in a PTP mesh can discover and communicate with
 each other directly via their various and often broken home routers.
 
 
@@ -34,11 +34,13 @@ SOFTWARE.
 # The software.
 
 The client and server are written in Python and should run on most
-platforms. It has some dependencies:
+platforms. It was developed using Python 2.7 and appears to work with
+Python 2.6. It would be very suprising if it worked with Python 3.x.
+It has some dependencies:
 
 Python packages:
 
-> dpkt eventlet IPy
+> argparse dpkt eventlet IPy
 
 Ubuntu package names:
 
@@ -47,6 +49,10 @@ Ubuntu package names:
 Fedora package names:
 
 > sudo yum install -y python-dpkt python-eventlet python-IPy
+
+FreeBSD port names:
+
+> devel/py-argparse net/py-dpkt net/py-eventlet net-mgmt/py-ipy
 
 ## Running the client.
 
@@ -75,29 +81,32 @@ protocol: A server and a client.
 
 ## The server.
 
-There is generally a small set of servers involved in this type of ptp,
+There is generally a small set of servers involved in this type of PTP,
 and in many cases just one. The servers job is to coordinate clients.
 There are some simple aspects to this coordination:
 
 * Discovery, by a client announcing itself to a server. The client
-would include details about itself. Often it will include any
-information the client has been able to determine, such as local
-IP addresses, external IP addresses, port numbers and in the case
-of subscription services, some account details to link the client
-to a specific service. Often some details can be discovered from the
-metadata of the packet itself, such as the IP address and port number
-the packet originated from.
+  would include details about itself. Often it will include any
+  information the client has been able to determine, such as local
+  IP addresses, external IP addresses, port numbers and in the case
+  of subscription services, some account details to link the client
+  to a specific service. Often some details can be discovered from the
+  metadata of the packet itself, such as the IP address and port number
+  the packet originated from.
+
 * Publishing, by telling clients about all the clients known. Clients
-would then start sending their data to new clients in the list. The
-list includes the IP address and port details that ptp peers should
-use to contact each client.
+  would then start sending their data to new clients in the list. The
+  list includes the IP address and port details that PTP peers should
+  use to contact each client.
+
 * Purging, by removing clients that have not been seen for a while.
-When a client is being purged, further publications of the client
-list inform all the other clients that one of their peers has gone.
+  When a client is being purged, further publications of the client
+  list inform all the other clients that one of their peers has gone.
+
 * Analytics, by collecting metrics from the clients and storing them.
-This data will generally include packet counts from tach ptp peer
-and any related performance metrics such as measured delay between
-peers.
+  This data will generally include packet counts from tach PTP peer
+  and any related performance metrics such as measured delay between
+  peers.
 
 ## The client.
 
@@ -105,15 +114,18 @@ There can be many clients. Their role is typically to distribute their
 state or some other data to other clients.
 
 * Registration, by informing some central server or servers of our
-presence. Typically the client includes some identification data,
-such as account details and sometimes IP address data.
+  presence. Typically the client includes some identification data,
+  such as account details and sometimes IP address data.
+
 * Discovery, by receiving from one or more servers details on the
-other clients that are available to form a ptp mesh with. These
-details will include IP address and port details. We only send data
-to and accept data from clients that were included in the most recent.
-Similarly, if we don't receive a response from a server, we might try
-a different server, or report that communications are unavailable.
+  other clients that are available to form a PTP mesh with. These
+  details will include IP address and port details. We only send data
+  to and accept data from clients that were included in the most recent.
+  Similarly, if we don't receive a response from a server, we might try
+  a different server, or report that communications are unavailable.
+
 * Publishing, by sending data to other clients that we know about.
+
 * Analytics, by including timestamps in the data.
 
 ## Data integrity.
@@ -173,4 +185,29 @@ and port number.
 | 34         | Unsigned integer   | uPNP used
 | 64         | Address            | Client list entry
 
+# Future work.
+
+* Currently the client does not try to detect if any other clients are
+  on its local network; it should.
+
+* Add some uPNP hooks. We want to be able to test interactions with
+  port forwarding on an IGD.
+
+* Add a mechanism for the client to detect its own external IP address.
+  This may be useful when looking for local clients, though not reliably
+  in a world of increasing CGN.
+
+* Add the option to seperate server and client-side sockets.
+
+* Though most of the code is address family agnostic, IPv6 has not been
+  tested
+
+* The client should summarize the clients it talks to as well as those
+  it expects to hear from but doesn't.
+
+* Optionally have the client tell the server about the client it was and
+  was not able to communicate with.
+
+* Have the server summarize it analytics, perhaps publishing a web page
+  for it.
 
