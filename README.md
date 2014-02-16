@@ -17,6 +17,9 @@ Python packages:
 Ubuntu package names:
     sudo apt-get install -y python-dpkt python-eventlet python-ipy
 
+Fedora package names:
+    sudo yum install -y python-dpkt python-eventlet python-IPy
+
 ## Running the client.
 
 ## Running the server.
@@ -122,7 +125,7 @@ and port number.
 | 9          | Unsigned integer   | "Your" timestamp
 | 32         | Address            | PTP address
 | 33         | Address            | Internal address
-| 34         | Unssigned integer  | uPNP used
+| 34         | Unsigned integer  | uPNP used
 | 64         | Address            | Client list entry
 
 
