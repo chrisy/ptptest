@@ -32,6 +32,22 @@ PTP_TYPE_CLIENTLIST = 64
 # Client-client
 PTP_TYPE_CC         = 96
 
+PTP_NAMES = {
+        -1: 'None',
+        PTP_TYPE_PROTOVER: 'PTP_TYPE_PROTOVER',
+        PTP_TYPE_SERVERVER: 'PTP_TYPE_SERVERVER',
+        PTP_TYPE_CLIENTVER: 'PTP_TYPE_CLIENTVER',
+        PTP_TYPE_SEQUENCE: 'PTP_TYPE_SEQUENCE',
+        PTP_TYPE_UUID: 'PTP_TYPE_UUID',
+        PTP_TYPE_MYTS: 'PTP_TYPE_MYTS',
+        PTP_TYPE_YOURTS: 'PTP_TYPE_YOURTS',
+        PTP_TYPE_PTPADDR: 'PTP_TYPE_PTPADDR',
+        PTP_TYPE_INTADDR: 'PTP_TYPE_INTADDR',
+        PTP_TYPE_UPNP: 'PTP_TYPE_UPNP',
+        PTP_TYPE_CLIENTLIST: 'PTP_TYPE_CLIENTLIST',
+        PTP_TYPE_CC: 'PTP_TYPE_CC',
+}
+
 
 class Base(dpkt.Packet):
     __hdr__ = (
@@ -39,6 +55,12 @@ class Base(dpkt.Packet):
 
     ptp_type = None
 
+    def __repr__(self):
+        t = self.ptp_type if self.ptp_type else -1
+        l = [ "ptp_type=%d(%s)" % (t, PTP_NAMES[t]) ]
+        if self.data:
+            l.append('data=%s' % repr(self.data))
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(l))
 
 class UInt(Base):
     size = 4
@@ -53,13 +75,13 @@ class UInt(Base):
     def unpack(self, buf):
         self.size = len(buf)
         super(UInt, self).unpack(buf)
-        self.data = struct.unpack('!%s' % self._stof(), self.data)
+        self.data = struct.unpack('!%s' % self._stof(), self.data)[0]
 
     def __len__(self):
         return self.size
 
     def __str__(self):
-        return struct.pack('!%s' % self._stof(), self.data)
+        return struct.pack('!%s' % self._stof(), int(self.data))
 
 
 class Int(Base):
@@ -75,13 +97,13 @@ class Int(Base):
     def unpack(self, buf):
         self.size = len(buf)
         super(UInt, self).unpack(buf)
-        self.data = struct.unpack('!%s' % self._stof(), self.data)
+        self.data = struct.unpack('!%s' % self._stof(), self.data)[0]
 
     def __len__(self):
         return self.size
 
     def __str__(self):
-        return struct.pack('!%s' % self._stof(), self.data)
+        return struct.pack('!%s' % self._stof(), int(self.data))
 
 
 class String(Base):

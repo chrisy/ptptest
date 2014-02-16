@@ -47,10 +47,11 @@ class Client(object):
     def _server_parse(self, buf, sin, server):
         server['ts'] = time.time()
         l = protocol.PTP(buf)
+        if self.args.debug: print repr(l)
 
     def _server_beacons(self):
         # Tell the server about ourself
-        # We need a list of TLVs and them form a PTP fron them
+        # We need a list of TLVs and then form a PTP fron them
         l = protocol.PTP(data=[])
         l.data = []
 
@@ -85,6 +86,7 @@ class Client(object):
     def _client_parse(self, buf, sin, client):
         client['ts'] = time.time()
         l = protocol.PTP(buf)
+        if self.args.debug: print repr(l)
 
     def _client_respond(self, their_ts):
         pass
@@ -95,8 +97,8 @@ class Client(object):
     def _read_loop(self):
         while self.running:
             (buf, sin) = self.sock.recvfrom(protocol.PTP_MTU)
-            if debug: print "%d bytes received from %s:%d" % (len(buf), sin[0], sin[1])
-            k = self._mkey(sim[0], sin[1])
+            if self.args.debug: print "%d bytes received from %s:%d" % (len(buf), sin[0], sin[1])
+            k = _mkey(sin[0], sin[1])
 
             # See if it was the server
             if k in self.servers:
@@ -104,10 +106,10 @@ class Client(object):
             else:
                 # Client we know about?
                 if k in self.clients:
-                    if debug: print "Known client"
+                    if self.args.debug: print "Known client"
                     self._client_parse(buf, sin, self.clients[k])
                 else:
-                    if debug: print "Unknown client"
+                    if self.args.debug: print "Unknown client"
 
     def run(self):
         print "Our socket is %s %s" % (self.addr, self.port)

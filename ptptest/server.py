@@ -18,109 +18,142 @@ class Server(object):
     args = None
     uuid = uuid.uuid1().bytes
     addr = None
-    port = 23456
+    port = None
 
-    servers = {}
     clients = {}
     server_seq = 0
 
     def __init__(self, args):
-        super(Client, self).__init__()
+        super(Server, self).__init__()
         self.args = args
 
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('0.0.0.0', self.port))
+        print "Binding server to %s port %d" % (args.server, args.port)
+        s.bind((args.server, args.port))
         (self.addr, self.port) = s.getsockname()
         self.sock = s
 
-        sk = _mkey(args.server, int(args.port))
-        self.servers = {
-                sk: {
-                    'sin': (args.server, int(args.port)),
-                    'ts': time.time(),
-                },
-        }
         self.clients = {}
-
-    def _server_parse(self, buf, sin, server):
-        server['ts'] = time.time()
-        l = protocol.PTP(buf)
-
-    def _server_beacons(self):
-        # Tell the server about ourself
-        # We need a list of TLVs and them form a PTP fron them
-        l = protocol.PTP(data=[])
-        l.data = []
-
-        t = protocol.TLV(type=protocol.PTP_TYPE_CLIENTVER, data=protocol.UInt(size=1, data=PTP_CLIENTVER))
-        l.data.append(t)
-        t = protocol.TLV(type=protocol.PTP_TYPE_SEQUENCE, data=protocol.UInt(size=4, data=self.server_seq))
-        l.data.append(t)
-        t = protocol.TLV(type=protocol.PTP_TYPE_UUID, data=protocol.String(data=self.uuid))
-        l.data.append(t)
-        t = protocol.TLV(type=protocol.PTP_TYPE_PTPADDR, data=protocol.Address(data=(self.addr, self.port)))
-        l.data.append(t)
-        t = protocol.TLV(type=protocol.PTP_TYPE_CC, data=protocol.String(data="Hello, world!"))
-        l.data.append(t)
-        t = protocol.TLV(type=protocol.PTP_TYPE_MYTS, data=protocol.UInt(size=8, data=int(time.time()*2**32)))
-        l.data.append(t)
-
-        packet = l.pack()
-        if len(packet) > protocol.PTP_MTU: # bad
-            print "Ignoring attempt to send %d bytes to servers. MTU is %d" % (len(packet), protocol.PTP_MTU)
-            return
-
-        if self.args.debug:
-            print "Sending %d bytes to servers:" % len(packet)
-            hexdump.hexdump(packet)
-
-        for k in self.servers:
-            server = self.servers[k]
-            self.sock.sendto(packet, server['sin'])
-
-        self.server_seq += 1L
 
     def _client_parse(self, buf, sin, client):
         client['ts'] = time.time()
         l = protocol.PTP(buf)
+        if self.args.debug: print repr(l)
 
-    def _client_respond(self, their_ts):
-        pass
+        for tlv in l.data:
+            p = tlv.data
+            if p.ptp_type == protocol.PTP_TYPE_CLIENTVER:
+                client['clientver'] = p.data
+            elif p.ptp_type == protocol.PTP_TYPE_SEQUENCE:
+                client['sequence'] = p.data
+            elif p.ptp_type == protocol.PTP_TYPE_UUID:
+                client['uuid'] = p.data
+            elif p.ptp_type == protocol.PTP_TYPE_MYTS:
+                self._client_respond(client, p.data)
+                client['myts'] = float(p.data) / float(2**32)
+
+    def _client_respond(self, client, their_ts):
+        l = protocol.PTP(data=[])
+        l.data = []
+        t = protocol.TLV(type=protocol.PTP_TYPE_SERVERVER, data=protocol.UInt(size=1, data=PTP_SERVERVER))
+        l.data.append(t)
+        t = protocol.TLV(type=protocol.PTP_TYPE_SEQUENCE, data=protocol.UInt(size=4, data=self.server_seq))
+        l.data.append(t)
+        t = protocol.TLV(type=protocol.PTP_TYPE_UUID, data=protocol.String(data=client['uuid']))
+        l.data.append(t)
+        t = protocol.TLV(type=protocol.PTP_TYPE_MYTS, data=protocol.UInt(size=8, data=int(time.time()*2**32)))
+        l.data.append(t)
+        t = protocol.TLV(type=protocol.PTP_TYPE_YOURTS, data=protocol.UInt(size=8, data=their_ts))
+        l.data.append(t)
+
+        packet = l.pack()
+        if len(packet) > protocol.PTP_MTU: # bad
+            print "Ignoring attempt to send ts %d bytes to client %s. MTU is %d" % \
+                    (len(packet), str(client['sin']), protocol.PTP_MTU)
+            return
+
+        if self.args.debug:
+            print "Sending ts %d bytes to client %s" % (len(packet), str(client['sin']))
+            hexdump.hexdump(packet)
+
+        self.sock.sendto(packet, client['sin'])
 
     def _client_beacons(self):
-        pass
+        for k in self.clients:
+            client = self.clients[k]
+            # We need a list of TLVs and then form a PTP fron them
+            l = protocol.PTP(data=[])
+            l.data = []
+
+            t = protocol.TLV(type=protocol.PTP_TYPE_SERVERVER, data=protocol.UInt(size=1, data=PTP_SERVERVER))
+            l.data.append(t)
+            t = protocol.TLV(type=protocol.PTP_TYPE_SEQUENCE, data=protocol.UInt(size=4, data=self.server_seq))
+            l.data.append(t)
+            t = protocol.TLV(type=protocol.PTP_TYPE_UUID, data=protocol.String(data=client['uuid']))
+            l.data.append(t)
+            t = protocol.TLV(type=protocol.PTP_TYPE_CC, data=protocol.String(data="Hello there!"))
+            l.data.append(t)
+            t = protocol.TLV(type=protocol.PTP_TYPE_MYTS, data=protocol.UInt(size=8, data=int(time.time()*2**32)))
+            l.data.append(t)
+
+            # Now add the list of known clients
+            for sk in self.clients:
+                if sk == k: continue  # skip the client we're sending this to
+                sc = self.clients[sk]
+                t = protocol.TLV(type=protocol.PTP_TYPE_CLIENTLIST, data=protocol.Address(data=client['sin']))
+                l.data.append(t)
+
+            packet = l.pack()
+            if len(packet) > protocol.PTP_MTU: # bad
+                print "Ignoring attempt to send %d bytes to client %s. MTU is %d" % \
+                        (len(packet), str(client['sin']), protocol.PTP_MTU)
+                return
+
+            if self.args.debug:
+                print "Sending %d bytes to client %s" % (len(packet), str(client['sin']))
+                hexdump.hexdump(packet)
+
+            self.sock.sendto(packet, client['sin'])
+
+        self.server_seq += 1L
+
 
     def _read_loop(self):
         while self.running:
             (buf, sin) = self.sock.recvfrom(protocol.PTP_MTU)
-            if debug: print "%d bytes received from %s:%d" % (len(buf), sin[0], sin[1])
-            k = self._mkey(sim[0], sin[1])
+            if self.args.debug: print "%d bytes received from %s:%d" % (len(buf), sin[0], sin[1])
+            k = _mkey(sin[0], sin[1])
 
-            # See if it was the server
-            if k in self.servers:
-                self._server_parse(buf, sin, self.servers[k])
+            # Client we know about?
+            if k in self.clients:
+                if self.args.debug: print "Known client"
             else:
-                # Client we know about?
-                if k in self.clients:
-                    if debug: print "Known client"
-                    self._client_parse(buf, sin, self.clients[k])
-                else:
-                    if debug: print "Unknown client"
+                if self.args.debug: print "New client"
+                self.clients[k] = {
+                        'sin': sin
+                }
+            self._client_parse(buf, sin, self.clients[k])
+
 
     def run(self):
-        print "Our socket is %s %s" % (self.addr, self.port)
-
         eventlet.spawn(self._read_loop)
         ts = 0
         while self.running:
             if time.time() - ts > 5:
                 ts = time.time()
-                # Send our server beacons
-                self._server_beacons()
+                # Send our beacons to the clients
+                self._client_beacons()
 
-            # Send a message to the clients
-            self._client_beacons()
+            # See if any clients need to be expired
+            remove = []
+            for k in self.clients:
+                client = self.clients[k]
+                if client['ts'] + 30 < time.time():
+                    remove.append(k)
+            for k in remove:
+                if self.args.debug: print "Expiring client %s" % k
+                del(self.clients[k])
 
             # Wait a moment
             eventlet.sleep(1)

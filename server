@@ -35,12 +35,14 @@ debug = False
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="PTP Mesh Server")
-    p.add_argument('-s', '--server', metavar='<address>', type=str, help="The address to bind to for the server")
-    p.add_argument('-p', '--port', metavar='<port>', type=int, help="The port to use for the server")
+    p.add_argument('-s', '--server', metavar='<address>', type=str,
+            help="The address to bind to for the server", default="0.0.0.0")
+    p.add_argument('-p', '--port', metavar='<port>', type=int,
+            help="The port to use for the server", default=23456)
 
     p.add_argument('-d', '--debug', action='store_true', help="Enable debugging output")
 
     args = p.parse_args()
     debug = args.debug
-    client = ptptest.Client(args)
-    client.run()
+    server = ptptest.Server(args)
+    server.run()
