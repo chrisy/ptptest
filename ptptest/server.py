@@ -3,12 +3,14 @@
 # Copyright (c) 2014 Chris Luke <chrisy@flirble.org>
 """PTP Server"""
 
-import eventlet
+import eventlet, eventlet.debug
 from eventlet.green import socket
 
 import protocol, time, hexdump, uuid
 
 PTP_SERVERVER       = 1
+
+eventlet.debug.hub_prevent_multiple_readers(False)
 
 def _mkey(addr, port):
     return "%s-%d" % (addr, port)
@@ -52,6 +54,9 @@ class Server(object):
             elif p.ptp_type == protocol.PTP_TYPE_MYTS:
                 self._client_respond(client, p.data)
                 client['myts'] = float(p.data) / float(2**32)
+            elif p.ptp_type == protocol.PTP_TYPE_YOURTS:
+                ts = float(p.data) / float(2**32)
+                print "ACK from client %s; RTT %fs" % (str(sin), time.time() - ts)
 
     def _client_respond(self, client, their_ts):
         l = protocol.PTP(data=[])
@@ -61,8 +66,6 @@ class Server(object):
         t = protocol.TLV(type=protocol.PTP_TYPE_SEQUENCE, data=protocol.UInt(size=4, data=self.server_seq))
         l.data.append(t)
         t = protocol.TLV(type=protocol.PTP_TYPE_UUID, data=protocol.String(data=client['uuid']))
-        l.data.append(t)
-        t = protocol.TLV(type=protocol.PTP_TYPE_MYTS, data=protocol.UInt(size=8, data=int(time.time()*2**32)))
         l.data.append(t)
         t = protocol.TLV(type=protocol.PTP_TYPE_YOURTS, data=protocol.UInt(size=8, data=their_ts))
         l.data.append(t)
@@ -78,6 +81,7 @@ class Server(object):
             hexdump.hexdump(packet)
 
         self.sock.sendto(packet, client['sin'])
+        self.server_seq += 1L
 
     def _client_beacons(self):
         for k in self.clients:
@@ -92,17 +96,20 @@ class Server(object):
             l.data.append(t)
             t = protocol.TLV(type=protocol.PTP_TYPE_UUID, data=protocol.String(data=client['uuid']))
             l.data.append(t)
-            t = protocol.TLV(type=protocol.PTP_TYPE_CC, data=protocol.String(data="Hello there!"))
-            l.data.append(t)
             t = protocol.TLV(type=protocol.PTP_TYPE_MYTS, data=protocol.UInt(size=8, data=int(time.time()*2**32)))
             l.data.append(t)
 
             # Now add the list of known clients
+            count = 0
             for sk in self.clients:
                 if sk == k: continue  # skip the client we're sending this to
                 sc = self.clients[sk]
-                t = protocol.TLV(type=protocol.PTP_TYPE_CLIENTLIST, data=protocol.Address(data=client['sin']))
+                t = protocol.TLV(type=protocol.PTP_TYPE_CLIENTLIST, data=protocol.Address(data=sc['sin']))
                 l.data.append(t)
+                count += 1
+
+            t = protocol.TLV(type=protocol.PTP_TYPE_CLIENTLEN, data=protocol.UInt(size=1, data=count))
+            l.data.append(t)
 
             packet = l.pack()
             if len(packet) > protocol.PTP_MTU: # bad
