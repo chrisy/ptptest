@@ -81,6 +81,8 @@ class Client(object):
                 num_clients = p.data
             elif p.ptp_type == protocol.PTP_TYPE_CLIENTLIST:
                 new_clients.append(p.data) # should be a sockaddr
+            elif p.ptp_type == protocol.PTP_TYPE_YOURADDR:
+                print "Server sees us as %s" % repr(p.data)
 
         if num_clients is not None:
             if num_clients == len(new_clients):
@@ -257,7 +259,7 @@ class Client(object):
         eventlet.spawn(self._read_loop)
         ts = 0
         while self.running:
-            if time.time() - ts > 5:
+            if time.time() - ts > 7:
                 ts = time.time()
                 # Send our server beacons
                 self._server_beacons()

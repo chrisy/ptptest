@@ -85,52 +85,56 @@ class Server(object):
 
     def _client_beacons(self):
         for k in self.clients:
-            client = self.clients[k]
-            # We need a list of TLVs and then form a PTP fron them
-            l = protocol.PTP(data=[])
-            l.data = []
+            self._client_beacon(k, self.clients[k])
 
-            t = protocol.TLV(type=protocol.PTP_TYPE_SERVERVER, data=protocol.UInt(size=1, data=PTP_SERVERVER))
+    def _client_beacon(self, k, client):
+        # We need a list of TLVs and then form a PTP fron them
+        l = protocol.PTP(data=[])
+        l.data = []
+
+        t = protocol.TLV(type=protocol.PTP_TYPE_SERVERVER, data=protocol.UInt(size=1, data=PTP_SERVERVER))
+        l.data.append(t)
+        t = protocol.TLV(type=protocol.PTP_TYPE_SEQUENCE, data=protocol.UInt(size=4, data=self.server_seq))
+        l.data.append(t)
+        t = protocol.TLV(type=protocol.PTP_TYPE_UUID, data=protocol.String(data=client['uuid']))
+        l.data.append(t)
+        t = protocol.TLV(type=protocol.PTP_TYPE_MYTS, data=protocol.UInt(size=8, data=int(time.time()*2**32)))
+        l.data.append(t)
+        t = protocol.TLV(type=protocol.PTP_TYPE_YOURADDR, data=protocol.Address(data=client['sin']))
+        l.data.append(t)
+
+        # Now add the list of known clients
+        count = 0
+        for sk in self.clients:
+            if sk == k: continue  # skip the client we're sending this to
+            sc = self.clients[sk]
+            t = protocol.TLV(type=protocol.PTP_TYPE_CLIENTLIST, data=protocol.Address(data=sc['sin']))
             l.data.append(t)
-            t = protocol.TLV(type=protocol.PTP_TYPE_SEQUENCE, data=protocol.UInt(size=4, data=self.server_seq))
-            l.data.append(t)
-            t = protocol.TLV(type=protocol.PTP_TYPE_UUID, data=protocol.String(data=client['uuid']))
-            l.data.append(t)
-            t = protocol.TLV(type=protocol.PTP_TYPE_MYTS, data=protocol.UInt(size=8, data=int(time.time()*2**32)))
-            l.data.append(t)
+            count += 1
 
-            # Now add the list of known clients
-            count = 0
-            for sk in self.clients:
-                if sk == k: continue  # skip the client we're sending this to
-                sc = self.clients[sk]
-                t = protocol.TLV(type=protocol.PTP_TYPE_CLIENTLIST, data=protocol.Address(data=sc['sin']))
-                l.data.append(t)
-                count += 1
+        t = protocol.TLV(type=protocol.PTP_TYPE_CLIENTLEN, data=protocol.UInt(size=1, data=count))
+        l.data.append(t)
 
-            t = protocol.TLV(type=protocol.PTP_TYPE_CLIENTLEN, data=protocol.UInt(size=1, data=count))
-            l.data.append(t)
+        packet = l.pack()
+        if len(packet) > protocol.PTP_MTU: # bad
+            print "Ignoring attempt to send %d bytes to client %s. MTU is %d" % \
+                    (len(packet), str(client['sin']), protocol.PTP_MTU)
+            return
 
-            packet = l.pack()
-            if len(packet) > protocol.PTP_MTU: # bad
-                print "Ignoring attempt to send %d bytes to client %s. MTU is %d" % \
-                        (len(packet), str(client['sin']), protocol.PTP_MTU)
-                return
+        if self.args.debug:
+            print "Sending %d bytes to client %s" % (len(packet), str(client['sin']))
+            hexdump.hexdump(packet)
 
-            if self.args.debug:
-                print "Sending %d bytes to client %s" % (len(packet), str(client['sin']))
-                hexdump.hexdump(packet)
-
-            self.sock.sendto(packet, client['sin'])
-
+        self.sock.sendto(packet, client['sin'])
         self.server_seq += 1L
-
 
     def _read_loop(self):
         while self.running:
             (buf, sin) = self.sock.recvfrom(protocol.PTP_MTU)
             if self.args.debug: print "%d bytes received from %s:%d" % (len(buf), sin[0], sin[1])
             k = _mkey(sin[0], sin[1])
+
+            new_client = False
 
             # Client we know about?
             if k in self.clients:
@@ -140,14 +144,17 @@ class Server(object):
                 self.clients[k] = {
                         'sin': sin
                 }
+                new_client = True
             self._client_parse(buf, sin, self.clients[k])
 
+            if new_client: # send an immediate update
+                self._client_beacons()
 
     def run(self):
         eventlet.spawn(self._read_loop)
         ts = 0
         while self.running:
-            if time.time() - ts > 5:
+            if time.time() - ts > 13:
                 ts = time.time()
                 # Send our beacons to the clients
                 self._client_beacons()
