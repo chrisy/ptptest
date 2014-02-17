@@ -35,13 +35,13 @@ build_exe_options = {
 }
 
 setup(  name = "ptptest",
-        version = __version__
+        version = __version__,
         description = "Point-to-point UDP tester",
         options = {"build_exe": build_exe_options},
         
         executables = [
-                Executable("client"),
-                Executable("server"),
+                Executable("ptpclient"),
+                Executable("ptpserver"),
         ],
 )
 
