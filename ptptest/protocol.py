@@ -29,6 +29,7 @@ PTP_TYPE_UPNP       = 34
 # Server-client
 PTP_TYPE_CLIENTLIST = 64
 PTP_TYPE_CLIENTLEN  = 65
+PTP_TYPE_YOURADDR   = 66
 
 # Client-client
 PTP_TYPE_CC         = 96
@@ -47,6 +48,7 @@ PTP_NAMES = {
         PTP_TYPE_UPNP: 'PTP_TYPE_UPNP',
         PTP_TYPE_CLIENTLIST: 'PTP_TYPE_CLIENTLIST',
         PTP_TYPE_CLIENTLEN: 'PTP_TYPE_CLIENTLEN',
+        PTP_TYPE_YOURADDR: 'PTP_TYPE_YOURADDR',
         PTP_TYPE_CC: 'PTP_TYPE_CC',
 }
 
@@ -168,6 +170,7 @@ PTP_MAP = {
 
         PTP_TYPE_CLIENTLIST: Address,
         PTP_TYPE_CLIENTLEN: UInt,
+        PTP_TYPE_YOURADDR: Address,
 
         PTP_TYPE_CC: String,
 }

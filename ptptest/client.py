@@ -31,10 +31,19 @@ class Client(object):
         super(Client, self).__init__()
         self.args = args
 
+        # Discover our local address
+        # TODO: Re-do this periodically, in case it changes
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.connect((args.server, int(args.port)))
+        self.addr = s.getsockname()[0]
+        s.close()
+
+        # Open our main socket, get its port
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('0.0.0.0', 0))
-        (self.addr, self.port) = s.getsockname()
+        self.port = s.getsockname()[1]
         self.sock = s
 
         sk = _mkey(args.server, int(args.port))
