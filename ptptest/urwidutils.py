@@ -213,7 +213,7 @@ class EventletEventLoop(object):
         A single iteration of the event loop
         """
         fds = self._watch_files.keys()
-        ready, w, err = select.select(fds, [], fds, 0.0001)
+        ready, w, err = select.select(fds, [], fds, 0.0000001)
 
         if not ready:
             self._entering_idle()
