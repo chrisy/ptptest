@@ -40,19 +40,26 @@ It has some dependencies:
 
 Python packages:
 
-> argparse dpkt eventlet IPy
+> pip install argparse dpkt eventlet IPy urwid
+
+Pip doesn't always want to install dpkt, but dpkt-fix seems to install,
+and work, fine.
+
+On Windows, if you are not using Cygwin, you may also need:
+
+> pip install cursesw
 
 Ubuntu package names:
 
-> sudo apt-get install -y python-dpkt python-eventlet python-ipy
+> sudo apt-get install -y python-dpkt python-eventlet python-ipy python-urwid
 
 Fedora package names:
 
-> sudo yum install -y python-dpkt python-eventlet python-IPy
+> sudo yum install -y python-dpkt python-eventlet python-IPy python-urwid
 
 FreeBSD port names:
 
-> devel/py-argparse net/py-dpkt net/py-eventlet net-mgmt/py-ipy
+> devel/py-argparse net/py-dpkt net/py-eventlet net-mgmt/py-ipy devel/py-urwid
 
 ## Running the client.
 
@@ -187,6 +194,8 @@ and port number.
 
 # Future work.
 
+In no particular order:
+
 * Currently the client does not try to detect if any other clients are
   on its local network; it should.
 
@@ -197,10 +206,17 @@ and port number.
   This may be useful when looking for local clients, though not reliably
   in a world of increasing CGN.
 
+* Use STUN.
+
 * Add the option to seperate server and client-side sockets.
 
 * Though most of the code is address family agnostic, IPv6 has not been
-  tested
+  tested.
+
+* Track packets sent; when the response doesn't arrive (after a timeout)
+  then count it as lost.
+
+* Track RTT's of last N packets so we can measure average and jitter.
 
 * The client should summarize the clients it talks to as well as those
   it expects to hear from but doesn't.
@@ -210,6 +226,9 @@ and port number.
 
 * Have the server summarize its analytics, perhaps publishing a web page
   for it.
+
+* Improve the UI - some sort of curses based thing perhaps. Show current
+  client/servers we're taking to and the stats for each.
 
 * We have checksums. We should probably check them!
 
