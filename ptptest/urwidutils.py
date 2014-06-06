@@ -26,7 +26,7 @@ class EventletEventLoop(object):
         """
         >>> import os
         >>> rd, wr = os.pipe()
-        >>> evl = SelectEventLoop()
+        >>> evl = EventletEventLoop()
         >>> def step1():
         ...     print "writing"
         ...     os.write(wr, "hi".encode('ascii'))
@@ -70,7 +70,7 @@ class EventletEventLoop(object):
 
     def _test_remove_alarm(self):
         """
-        >>> evl = SelectEventLoop()
+        >>> evl = EventletEventLoop()
         >>> handle = evl.alarm(50, lambda: None)
         >>> evl.remove_alarm(handle)
         True
@@ -104,7 +104,7 @@ class EventletEventLoop(object):
 
     def _test_remove_watch_file(self):
         """
-        >>> evl = SelectEventLoop()
+        >>> evl = EventletEventLoop()
         >>> handle = evl.watch_file(5, lambda: None)
         >>> evl.remove_watch_file(handle)
         True
@@ -160,7 +160,7 @@ class EventletEventLoop(object):
         >>> rd, wr = os.pipe()
         >>> os.write(wr, "data".encode('ascii')) # something to read from rd
         4
-        >>> evl = SelectEventLoop()
+        >>> evl = EventletEventLoop()
         >>> def say_hello():
         ...     print "hello"
         >>> def say_waiting():

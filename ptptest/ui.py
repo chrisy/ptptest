@@ -9,19 +9,6 @@ UI
 import eventlet, urwid
 from urwidutils import EventletEventLoop
 
-class LogBox(urwid.ListBox):
-    length = 10
-
-    def __init__(self, length=10):
-        body = urwid.SimpleFocusListWalker([urwid.Text("Log")])
-        super(LogBox, self).__init__(body)
-        self.length = length
-
-    def addline(self, line):
-        while len(self.body) > self.length:
-            self.body.pop(0)
-        self.body.append(urwid.Text(text))
-
 
 class UI(object):
     client = False
@@ -33,10 +20,24 @@ class UI(object):
     _mainloop = None
 
     palette = [
-            ('body', 'black', 'light gray'),
-            ('header', 'yellow', 'black', 'standout'),
-            ('footer', 'light gray', 'black'),
+            ('header', 'yellow', 'dark blue', 'standout'),
+            ('log-hdr', 'white', 'dark blue', 'standout'),
+            ('log', 'light gray', 'black'),
+            ('table header', 'light green', 'black', 'standout'),
+            ('table server', 'light gray', 'black', 'standout'),
+            ('table client', 'yellow', 'black', 'standout'),
+            ('body', 'dark green', 'black'),
     ]
+
+    cols = [
+        ('addr', 'Address',   '%s', 3,),
+        ('sent', 'Pkts Sent', '%d', 1,),
+        ('lost', 'Pkts Lost', '%d', 1,),
+        ('rtt',  'Avg RTT',   '%f', 1,),
+    ]
+
+    _peers = {}
+    _group = {}
 
     def __init__(self, client=False, server=False, parent=None):
         super(UI, self).__init__()
@@ -45,10 +46,14 @@ class UI(object):
         self.server = server
         self.parent = parent
 
+        # Initialize the UI elements
         root = self._buildui()
-        # Gui thread
-        def uirun():
 
+        self._peers['client'] = []
+        self._peers['server'] = []
+
+        # GUI thread
+        def uirun():
             # Handle our keypresses
             def inkey(key):
                 if key in ('q', 'Q'):
@@ -67,6 +72,7 @@ class UI(object):
                     handle_mouse=False)
             self._root = root
 
+            # This runs the UI loop - it only returns when we're exiting
             self._mainloop.run()
 
             # Remove this, to stop further interaction
@@ -76,26 +82,52 @@ class UI(object):
             if parent is not None:
                 parent.running = False
 
+        # Start the UI thread
         eventlet.spawn(uirun)
 
     def _buildui(self):
 
-        header = urwid.Text("Header")
-        header = urwid.AttrMap(header, 'header')
+        self._header = urwid.Text('')
+        header = urwid.AttrMap(self._header, 'header')
 
-        body = urwid.ListBox(urwid.SimpleFocusListWalker([urwid.Text("body")]))
-        body = urwid.AttrMap(body, 'body')
+        hcols = []
+        for col in self.cols:
+            (label, descr, fmt, weight) = col
+            w = urwid.Text(descr)
+            hcols.append(('weight', weight, w))
 
-        footer = urwid.SimpleFocusListWalker([urwid.Text("Log")])
-        self._log = footer
-        footer = urwid.ListBox(footer)
-        footer = urwid.BoxAdapter(footer, 10)
+        table_header = urwid.AttrMap(urwid.Columns(hcols), 'table header')
+
+        th = urwid.ListBox(urwid.SimpleFocusListWalker([table_header]))
+        self._group = {
+            'client': urwid.SimpleListWalker([]),
+            'server': urwid.SimpleListWalker([]),
+        }
+        parts = [th]
+        parts.append(urwid.AttrMap(urwid.ListBox(self._group['server']), 'table server'))
+        parts.append(urwid.AttrMap(urwid.ListBox(self._group['client']), 'table client'))
+        #parts.append(urwid.Divider())
+        body = urwid.AttrMap(urwid.Pile(parts), 'body')
+
+        self._log = urwid.SimpleFocusListWalker([])
+        log = urwid.ListBox(self._log)
+        log = urwid.BoxAdapter(log, 10)
+        log = urwid.AttrMap(log, 'log')
+
+        footer = urwid.Pile([
+            urwid.Divider(div_char=u'\u2500'),
+            urwid.AttrMap(urwid.Text("Log output"), 'log-hdr'),
+            log])
         footer = urwid.AttrMap(footer, 'footer')
 
         return urwid.Frame(body, header=header, footer=footer)
 
-    def log(self, text):
+    def log(self, text, stdout=False):
         """Send a log message to the logging part of the UI"""
+
+        if stdout:
+            print(text)
+
         for line in text.split("\n"):
             while len(self._log) > 10:
                 self._log.pop(0)
@@ -103,7 +135,66 @@ class UI(object):
 
         self._log.set_focus(len(self._log)-1)
 
-        if self._mainloop is not None:
-            self._mainloop.draw_screen()
+        #if self._mainloop is not None:
+            #self._mainloop.draw_screen()
 
+    def title(self, text, stdout=False):
+        """Set page title"""
+        if stdout:
+            print(text)
+        self._header.set_text(text)
 
+    def _find_peer(self, group, sin):
+        index = 0
+        for peer in self._peers[group]:
+            if peer == sin:
+                return index 
+            index += 1
+        return None
+
+    def peer_update(self, group, sin, stats):
+        if 'sent' in stats and 'rcvd' in stats:
+            stats['lost'] = stats['sent'] - stats['rcvd']
+
+        index = self._find_peer(group, sin)
+        if index is None:
+            return
+
+        colnum = -1
+        for col in self.cols:
+            (label, descr, fmt, weight) = col
+            colnum += 1
+            if label in ('addr',):
+                continue
+            if label in stats:
+                text = fmt % stats[label]
+                self._group[group][index][colnum].set_text(text)
+
+    def peer_add(self, group, sin):
+        if self._find_peer(group, sin) is not None:
+            return
+
+        hcols = []
+        for col in self.cols:
+            (label, descr, fmt, weight) = col
+            text = None
+            if label == 'addr':
+                text = repr(sin)
+            else:
+                text = ""
+            w = urwid.Text(text)
+            hcols.append(('weight', weight, w))
+
+        te = urwid.Columns(hcols)
+
+        self._peers[group].append(sin)
+        self._group[group].append(te)
+
+    def peer_del(self, group, sin):
+        index = self._find_peer(group, sin)
+
+        if index is None:
+            return
+
+        self._peers[group].pop(index)
+        self._group[group].pop(index)

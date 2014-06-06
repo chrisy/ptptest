@@ -14,11 +14,12 @@ from eventlet.green import time
 
 import __init__ as ptptest
 import protocol, hexdump, uuid, ui
-PTP_CLIENTVER       = 1
 
+PTP_CLIENTVER       = 1
 
 def _mkey(addr, port):
     return "%s-%d" % (addr, port)
+
 
 class Client(object):
     running = True
@@ -59,12 +60,20 @@ class Client(object):
                 sk: {
                     'sin': (args.server, int(args.port)),
                     'ts': time.time(),
+                    'stats': {
+                        'sent': 0,
+                        'rcvd': 0,
+                        'rtt': 0,
+                    },
                 },
         }
         self.clients = {}
 
     def _server_parse(self, buf, sin, server):
+        server['old_ts'] = server['ts']
         server['ts'] = time.time()
+        server['stats']['rcvd'] += 1
+
         l = protocol.PTP(buf)
         if self.args.debug: self.ui.log(repr(l))
 
@@ -84,13 +93,17 @@ class Client(object):
                 server['myts'] = float(p.data) / float(2**32)
             elif p.ptp_type == protocol.PTP_TYPE_YOURTS:
                 ts = float(p.data) / float(2**32)
-                self.ui.log("ACK from server %s; RTT %fs" % (str(sin), time.time() - ts))
+                rtt = server['ts'] - ts
+                server['stats']['rtt'] = rtt
+                self.ui.log("ACK from server %s; RTT %fs" % (str(sin), rtt))
             elif p.ptp_type == protocol.PTP_TYPE_CLIENTLEN:
                 num_clients = p.data
             elif p.ptp_type == protocol.PTP_TYPE_CLIENTLIST:
                 new_clients.append(p.data) # should be a sockaddr
             elif p.ptp_type == protocol.PTP_TYPE_YOURADDR:
                 self.ui.log("Server sees us as %s" % repr(p.data))
+
+        self.ui.peer_update('server', server['sin'], server['stats'])
 
         if num_clients is not None:
             if num_clients == len(new_clients):
@@ -102,12 +115,23 @@ class Client(object):
                             delete.append(k)
                     for k in delete:
                         if self.args.debug: self.ui.log("Removing old client %s" % str(self.clients[k]['sin']))
+                        self.ui.peer_del(group='client', sin=self.clients[k]['sin'])
                         del(self.clients[k])
                     for sin in new_clients:
                         k = _mkey(sin[0], sin[1])
                         if k not in self.clients: # new
                             if self.args.debug: self.ui.log("Adding new client %s" % str(sin))
-                            self.clients[k] = { 'sin': sin, 'ts': time.time(), 'myseq': 0L }
+                            self.clients[k] = {
+                                'sin': sin,
+                                'ts': time.time(),
+                                'myseq': 0L,
+                                'stats': {
+                                    'sent': 0,
+                                    'rcvd': 0,
+                                    'rtt': 0,
+                                },
+                            }
+                            self.ui.peer_add(group='client', sin=sin)
                     if self.args.debug: self.ui.log("Client count: %d" % len(self.clients))
             else:
                 self.ui.log("Mismatch in client list from server")
@@ -165,12 +189,17 @@ class Client(object):
         with self._slock:
             for k in self.servers:
                 server = self.servers[k]
+                server['stats']['sent'] += 1
                 self.sock.sendto(packet, server['sin'])
+                self.ui.peer_update('server', server['sin'], server['stats'])
 
         self.server_seq += 1L
 
     def _client_parse(self, buf, sin, client):
+        client['old_ts'] = client['ts']
         client['ts'] = time.time()
+        client['stats']['rcvd'] += 1
+
         l = protocol.PTP(buf)
         if self.args.debug: self.ui.log(repr(l))
 
@@ -187,7 +216,11 @@ class Client(object):
                 client['myts'] = float(p.data) / float(2**32)
             elif p.ptp_type == protocol.PTP_TYPE_YOURTS:
                 ts = float(p.data) / float(2**32)
-                self.ui.log("ACK from client %s; RTT %fs" % (str(sin), time.time() - ts))
+                rtt = client['ts'] - ts
+                client['stats']['rtt'] = rtt
+                self.ui.log("ACK from client %s; RTT %fs" % (str(sin), rtt))
+
+        self.ui.peer_update('client', client['sin'], client['stats'])
 
     def _client_respond(self, client, their_ts):
         if not 'myseq' in client or not 'sin' in client: return
@@ -245,7 +278,9 @@ class Client(object):
                     self.ui.log(hexdump.hexdump(result='return', data=packet))
 
                 self.sock.sendto(packet, client['sin'])
+                client['stats']['sent'] += 1
                 client['myseq'] += 1
+                self.ui.peer_update('client', client['sin'], client['stats'])
 
     def _read_loop(self):
         while self.running:
@@ -267,24 +302,32 @@ class Client(object):
                             if self.args.debug: self.ui.log("Unknown client")
 
     def run(self):
-        print "PTP Client version %s (protocol version %d)" % (ptptest.__version__, PTP_CLIENTVER)
-
         # Get ourselves a UI
         self.ui = ui.UI(client=True, parent=self)
 
-        self.ui.log("Our socket is %s %s" % (self.addr, self.port))
+        self.ui.title("PTP Client version %s (protocol version %d)" % (ptptest.__version__, PTP_CLIENTVER), stdout=True)
+        self.ui.log("Our socket is %s %s" % (self.addr, self.port), stdout=True)
 
         eventlet.spawn(self._read_loop)
 
-        ts = 0
+        # Add our servers to the peer list
+        with self._slock:
+            for sk in self.servers:
+                server = self.servers[sk]
+                self.ui.peer_add(group='server', sin=server['sin'])
+
+        server_ts = 0
+        client_ts = 0
         while self.running:
-            if time.time() - ts > 7:
-                ts = time.time()
+            if time.time() - server_ts > 7:
+                server_ts = time.time()
                 # Send our server beacons
                 self._server_beacons()
 
-            # Send a message to the clients
-            self._client_beacons()
+            if time.time() - client_ts > 0.5:
+                client_ts = time.time()
+                # Send a message to the clients
+                self._client_beacons()
 
             # Wait a moment
             eventlet.sleep(0)
