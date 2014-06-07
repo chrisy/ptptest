@@ -57,10 +57,20 @@ class Client(object):
         self.port = s.getsockname()[1]
         self.sock = s
 
-        sk = _mkey(args.server, int(args.port))
+        # Resolve the server name
+        addrs = socket.getaddrinfo(args.server, int(args.port),
+                socket.AF_INET, socket.SOCK_DGRAM, socket.SOL_UDP,
+                socket.AI_CANONNAME)
+     
+        # Use the first on the list
+        sin = addrs[0][4]
+        hostname = addrs[0][3]
+
+        sk = _mkey(sin[0], sin[1])
         self.servers = {
                 sk: {
-                    'sin': (args.server, int(args.port)),
+                    'sin': sin,
+                    'name': hostname,
                     'ts': time.time(),
                     'stats': {
                         'sent': 0,
