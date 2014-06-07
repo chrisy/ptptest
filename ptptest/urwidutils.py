@@ -6,7 +6,8 @@
 Urwid extensions
 """
 
-import heapq, eventlet, select, urwid
+import heapq, eventlet, select, errno, urwid
+from eventlet.green import time
 
 class EventletEventLoop(object):
     """
@@ -16,9 +17,11 @@ class EventletEventLoop(object):
     def __init__(self):
         self._alarms = []
         self._watch_files = {}
+        self._poll = select.poll()
         self._idle_handle = 0
         self._idle_callbacks = {}
-        self.running = True
+        self._idle_ts = 0
+        self.running = False
 
         eventlet.spawn(self._task);
 
@@ -61,9 +64,9 @@ class EventletEventLoop(object):
         Returns True if the alarm exists, False otherwise
         """
         try:
+            handle.cancel()
             self._alarms.remove(handle)
             heapq.heapify(self._alarms)
-            handle.cancel()
             return True
         except ValueError:
             return False
@@ -89,6 +92,8 @@ class EventletEventLoop(object):
         callback -- function to call when input is available
         """
         self._watch_files[fd] = callback
+        self._poll.register(fd, select.POLLIN)
+
         return fd
 
     def remove_watch_file(self, handle):
@@ -98,8 +103,10 @@ class EventletEventLoop(object):
         Returns True if the input file exists, False otherwise
         """
         if handle in self._watch_files:
+            self._poll.unregister(handle)
             del self._watch_files[handle]
             return True
+
         return False
 
     def _test_remove_watch_file(self):
@@ -140,7 +147,8 @@ class EventletEventLoop(object):
         """
         for callback in self._idle_callbacks.values():
             callback()
-            eventlet.sleep(0)
+            eventlet.sleep(0.01)
+        self._idle_ts = time.time()
 
     def run(self):
         """
@@ -148,11 +156,11 @@ class EventletEventLoop(object):
         an exception.  If ExitMainLoop is raised, exit cleanly.
         """
 
-        try:
-            while self.running:
-                   eventlet.sleep(1)
-        except urwid.ExitMainLoop:
-            pass
+        self.running = True
+
+        # This can be done much much better...
+        while self.running:
+            eventlet.sleep(0.75)
 
     def _test_run(self):
         """
@@ -200,24 +208,79 @@ class EventletEventLoop(object):
         while self.running:
             try:
                 self._loop()
+                eventlet.sleep(0.01)
             except select.error, e:
-                if e.args[0] != 4:
+                print "oooh"
+                if e.args[0] != errno.EINTR:
                     # not just something we need to retry
                     raise
             except urwid.ExitMainLoop:
                 self.running = False
-            eventlet.sleep(0)
+
 
     def _loop(self):
         """
         A single iteration of the event loop
         """
-        fds = self._watch_files.keys()
-        ready, w, err = select.select(fds, [], fds, 0.0000001)
-
-        if not ready:
-            self._entering_idle()
+        ready = self._poll.poll(0)
+        if ready is not None and len(ready):
+            for fd, event in ready:
+                if event == select.POLLIN:
+                    self._watch_files[fd]()
         else:
-            for fd in ready:
-                self._watch_files[fd]()
+            self._entering_idle()
+
+        # Make sure idle cb's don't get starved
+        if time.time() - self._idle_ts > 0.5:
+            self._entering_idle()
+
+
+class Screen(urwid.raw_display.Screen):
+
+    def __init__(self):
+        super(Screen, self).__init__()
+
+    def signal_init(self):
+        pass
+
+    def real_signal_init(self):
+        super(Screen, self).signal_init()
+
+    def signal_restore(self):
+        pass
+
+    def real_signal_restore(self):
+        super(Screen, self).signal_restore()
+
+    def _wait_for_input_ready(self, timeout):
+        ready = None
+        p = select.poll()
+        p.register(self._term_input_file.fileno(), select.POLLIN)
+
+        if self.gpm_mev is not None:
+            p.register(self.gpm_mev.stdout.fileno(), select.POLLIN)
+
+        while True:
+            try:
+                if timeout is None:
+                    events = p.poll(0)
+                    if events is None or len(events) == 0:
+                        eventlet.sleep(0.1)
+                        continue
+                else:
+                    events = p.poll(timeout)
+                ready = []
+                for fd, event in events:
+                    if event == select.POLLIN:
+                        ready.append(fd)
+                break
+
+            except select.error, e:
+                if e.args[0] != select.EINTR:
+                    raise
+                if self._resized:
+                    ready = []
+                    break
+
+        return ready
 

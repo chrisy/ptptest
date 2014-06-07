@@ -41,6 +41,7 @@ if __name__ == "__main__":
             help="The port to use on the server", default="23456")
 
     p.add_argument('-d', '--debug', action='store_true', help="Enable debugging output")
+    p.add_argument('--hexdump', action='store_true', help="Enable hexdump debugging output")
 
     args = p.parse_args()
     debug = args.debug

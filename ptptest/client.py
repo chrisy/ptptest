@@ -6,8 +6,10 @@
 
 import eventlet, eventlet.debug
 
-eventlet.monkey_patch(socket=True, os=True, time=True)
+# Don't patch 'os' because it breaks nonblocking os.read
+eventlet.monkey_patch(socket=True, os=False, time=True)
 eventlet.debug.hub_prevent_multiple_readers(False)
+eventlet.debug.hub_blocking_detection(True)
 
 from eventlet.green import socket
 from eventlet.green import time
@@ -15,7 +17,7 @@ from eventlet.green import time
 import __init__ as ptptest
 import protocol, hexdump, uuid, ui
 
-PTP_CLIENTVER       = 1
+PTP_CLIENTVER       = 2
 
 def _mkey(addr, port):
     return "%s-%d" % (addr, port)
@@ -63,6 +65,7 @@ class Client(object):
                     'stats': {
                         'sent': 0,
                         'rcvd': 0,
+                        'ackd': 0,
                         'rtt': 0,
                     },
                 },
@@ -70,11 +73,14 @@ class Client(object):
         self.clients = {}
 
     def _server_parse(self, buf, sin, server):
-        server['old_ts'] = server['ts']
+        l = protocol.PTP(buf)
+        if l is None:
+            self.ui.log("Server packet from %s failed to parse!" % repr(sin))
+            return False
+
         server['ts'] = time.time()
         server['stats']['rcvd'] += 1
 
-        l = protocol.PTP(buf)
         if self.args.debug: self.ui.log(repr(l))
 
         new_clients = []
@@ -95,11 +101,17 @@ class Client(object):
                 ts = float(p.data) / float(2**32)
                 rtt = server['ts'] - ts
                 server['stats']['rtt'] = rtt
+                server['stats']['ackd'] += 1
                 self.ui.log("ACK from server %s; RTT %fs" % (str(sin), rtt))
             elif p.ptp_type == protocol.PTP_TYPE_CLIENTLEN:
                 num_clients = p.data
-            elif p.ptp_type == protocol.PTP_TYPE_CLIENTLIST:
+            elif p.ptp_type == protocol.PTP_TYPE_CLIENTLIST_EXT:
                 new_clients.append(p.data) # should be a sockaddr
+            elif p.ptp_type == protocol.PTP_TYPE_CLIENTLIST_INT:
+                # server thinks the previous address may be on the same
+                # network as us, so has sent us a clients internal address
+                # This is crude, but we just overwrite the previous address for now
+                new_clients[-1] = p.data
             elif p.ptp_type == protocol.PTP_TYPE_YOURADDR:
                 self.ui.log("Server sees us as %s" % repr(p.data))
 
@@ -128,6 +140,7 @@ class Client(object):
                                 'stats': {
                                     'sent': 0,
                                     'rcvd': 0,
+                                    'ackd': 0,
                                     'rtt': 0,
                                 },
                             }
@@ -135,6 +148,8 @@ class Client(object):
                     if self.args.debug: self.ui.log("Client count: %d" % len(self.clients))
             else:
                 self.ui.log("Mismatch in client list from server")
+
+        return True
 
     def _server_respond(self, server, their_ts):
         l = protocol.PTP(data=[])
@@ -156,12 +171,14 @@ class Client(object):
 
         if self.args.debug:
             self.ui.log("Sending ts %d bytes to server %s" % (len(packet), str(server['sin'])))
-            self.ui.log(hexdump.hexdump(result='return', data=packet))
+            self.ui.log("%s" % repr(protocol.PTP(packet)), indent='  ')
+            if self.args.hexdump:
+                self.ui.log(hexdump.hexdump(result='return', data=packet))
 
         self.sock.sendto(packet, server['sin'])
         self.server_seq += 1L
 
-    def _server_beacons(self):
+    def _server_beacons(self, shutdown=False):
         # Tell the server about ourself
         l = protocol.PTP(data=[])
         l.data = []
@@ -174,8 +191,13 @@ class Client(object):
         l.data.append(t)
         t = protocol.TLV(type=protocol.PTP_TYPE_PTPADDR, data=protocol.Address(data=(self.addr, self.port)))
         l.data.append(t)
-        t = protocol.TLV(type=protocol.PTP_TYPE_MYTS, data=protocol.UInt(size=8, data=int(time.time()*2**32)))
-        l.data.append(t)
+        if shutdown:
+            t = protocol.TLV(type=protocol.PTP_TYPE_SHUTDOWN, data=protocol.UInt(size=1, data=1))
+            l.data.append(t)
+        else:
+            t = protocol.TLV(type=protocol.PTP_TYPE_MYTS,
+                    data=protocol.UInt(size=8, data=int(time.time()*2**32)))
+            l.data.append(t)
 
         packet = l.pack()
         if len(packet) > protocol.PTP_MTU: # bad
@@ -184,7 +206,9 @@ class Client(object):
 
         if self.args.debug:
             self.ui.log("Sending %d bytes to servers:" % len(packet))
-            self.ui.log(hexdump.hexdump(result='return', data=packet))
+            self.ui.log("%s" % repr(protocol.PTP(packet)), indent='  ')
+            if self.args.hexdump:
+                self.ui.log(hexdump.hexdump(result='return', data=packet))
 
         with self._slock:
             for k in self.servers:
@@ -196,11 +220,14 @@ class Client(object):
         self.server_seq += 1L
 
     def _client_parse(self, buf, sin, client):
-        client['old_ts'] = client['ts']
+        l = protocol.PTP(buf)
+        if l is None:
+            self.ui.log("Client packet from %s failed to parse!" % repr(sin))
+            return False
+
         client['ts'] = time.time()
         client['stats']['rcvd'] += 1
 
-        l = protocol.PTP(buf)
         if self.args.debug: self.ui.log(repr(l))
 
         for tlv in l.data:
@@ -218,9 +245,11 @@ class Client(object):
                 ts = float(p.data) / float(2**32)
                 rtt = client['ts'] - ts
                 client['stats']['rtt'] = rtt
+                client['stats']['ackd'] += 1
                 self.ui.log("ACK from client %s; RTT %fs" % (str(sin), rtt))
 
         self.ui.peer_update('client', client['sin'], client['stats'])
+        return True
 
     def _client_respond(self, client, their_ts):
         if not 'myseq' in client or not 'sin' in client: return
@@ -243,7 +272,9 @@ class Client(object):
 
         if self.args.debug:
             self.ui.log("Sending ts %d bytes to client %s" % (len(packet), str(client['sin'])))
-            self.ui.log(hexdump.hexdump(result='return', data=packet))
+            self.ui.log("%s" % repr(protocol.PTP(packet)), indent='  ')
+            if self.args.hexdump:
+                self.ui.log(hexdump.hexdump(result='return', data=packet))
 
         self.sock.sendto(packet, client['sin'])
         client['myseq'] += 1
@@ -275,7 +306,9 @@ class Client(object):
 
                 if self.args.debug:
                     self.ui.log("Sending ts %d bytes to client %s" % (len(packet), str(client['sin'])))
-                    self.ui.log(hexdump.hexdump(result='return', data=packet))
+                    self.ui.log("%s" % repr(protocol.PTP(packet)), indent='  ')
+                    if self.args.hexdump:
+                        self.ui.log(hexdump.hexdump(result='return', data=packet))
 
                 self.sock.sendto(packet, client['sin'])
                 client['stats']['sent'] += 1
@@ -305,7 +338,8 @@ class Client(object):
         # Get ourselves a UI
         self.ui = ui.UI(client=True, parent=self)
 
-        self.ui.title("PTP Client version %s (protocol version %d)" % (ptptest.__version__, PTP_CLIENTVER), stdout=True)
+        self.ui.title("PTP Client version %s (protocol version %d)" %
+            (ptptest.__version__, PTP_CLIENTVER), stdout=True)
         self.ui.log("Our socket is %s %s" % (self.addr, self.port), stdout=True)
 
         eventlet.spawn(self._read_loop)
@@ -319,16 +353,20 @@ class Client(object):
         server_ts = 0
         client_ts = 0
         while self.running:
-            if time.time() - server_ts > 7:
-                server_ts = time.time()
+            ts = time.time()
+            if ts - server_ts > 7:
+                server_ts = ts
                 # Send our server beacons
                 self._server_beacons()
 
-            if time.time() - client_ts > 0.5:
-                client_ts = time.time()
+            if ts - client_ts > 0.5:
+                client_ts = ts
                 # Send a message to the clients
                 self._client_beacons()
 
             # Wait a moment
-            eventlet.sleep(0)
+            eventlet.sleep(0.05)
+
+        # Shutting down, try to tell servers
+        self._server_beacons(shutdown=True)
 

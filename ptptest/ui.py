@@ -1,4 +1,4 @@
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
 # 
 # Copyright (c) 2014 Chris Luke <chrisy@flirble.org>
 # 
@@ -7,13 +7,15 @@ UI
 """
 
 import eventlet, urwid
-from urwidutils import EventletEventLoop
+from urwidutils import EventletEventLoop, Screen
 
 
 class UI(object):
     client = False
     server = False
     parent = None
+    screen = None
+    log_lines = 10
 
     _root = None
     _log = None
@@ -23,7 +25,7 @@ class UI(object):
             ('header', 'yellow', 'dark blue', 'standout'),
             ('log-hdr', 'white', 'dark blue', 'standout'),
             ('log', 'light gray', 'black'),
-            ('table header', 'light green', 'black', 'standout'),
+            ('table header', 'light green', 'dark blue', 'standout'),
             ('table server', 'light gray', 'black', 'standout'),
             ('table client', 'yellow', 'black', 'standout'),
             ('body', 'dark green', 'black'),
@@ -32,7 +34,8 @@ class UI(object):
     cols = [
         ('addr', 'Address',   '%s', 3,),
         ('sent', 'Pkts Sent', '%d', 1,),
-        ('lost', 'Pkts Lost', '%d', 1,),
+        ('rcvd', 'Pkts Rcvd', '%d', 1,),
+        ('lost', 'Acks Lost', '%d', 1,),
         ('rtt',  'Avg RTT',   '%f', 1,),
     ]
 
@@ -52,15 +55,21 @@ class UI(object):
         self._peers['client'] = []
         self._peers['server'] = []
 
+        # The screen for the UI
+        self._screen = Screen()
+
+        # Initialize signal handlers
+        self._screen.real_signal_init()
+
         # GUI thread
         def uirun():
+
             # Handle our keypresses
             def inkey(key):
+                self.log('inkey=%s' % key)
                 if key in ('q', 'Q'):
                     raise urwid.ExitMainLoop()
-
-            # The screen
-            self._screen = urwid.raw_display.Screen()
+                return False
 
             # Build the UI mainloop
             self._mainloop = urwid.MainLoop(
@@ -96,42 +105,47 @@ class UI(object):
             w = urwid.Text(descr)
             hcols.append(('weight', weight, w))
 
-        table_header = urwid.AttrMap(urwid.Columns(hcols), 'table header')
+        # The parts of the window
+        parts = []
 
-        th = urwid.ListBox(urwid.SimpleFocusListWalker([table_header]))
+        # Table header
+        table_header = urwid.AttrMap(urwid.Columns(hcols), 'table header')
+        parts.append(('pack', table_header))
+
+        # Client and server sections
         self._group = {
-            'client': urwid.SimpleListWalker([]),
-            'server': urwid.SimpleListWalker([]),
+            'client': urwid.Pile([]),
+            'server': urwid.Pile([]),
         }
-        parts = [th]
-        parts.append(urwid.AttrMap(urwid.ListBox(self._group['server']), 'table server'))
-        parts.append(urwid.AttrMap(urwid.ListBox(self._group['client']), 'table client'))
-        #parts.append(urwid.Divider())
+        parts.append(('pack', urwid.AttrMap(self._group['server'], 'table server')))
+        parts.append(urwid.AttrMap(self._group['client'], 'table client'))
+        
         body = urwid.AttrMap(urwid.Pile(parts), 'body')
 
+        # Logging output footer
         self._log = urwid.SimpleFocusListWalker([])
         log = urwid.ListBox(self._log)
-        log = urwid.BoxAdapter(log, 10)
+        log = urwid.BoxAdapter(log, self.log_lines)
         log = urwid.AttrMap(log, 'log')
 
         footer = urwid.Pile([
-            urwid.Divider(div_char=u'\u2500'),
+            #urwid.AttrMap(urwid.Divider(div_char=u'\u2500'), 'log-hdr'),
             urwid.AttrMap(urwid.Text("Log output"), 'log-hdr'),
             log])
         footer = urwid.AttrMap(footer, 'footer')
 
         return urwid.Frame(body, header=header, footer=footer)
 
-    def log(self, text, stdout=False):
+    def log(self, text, stdout=False, indent=''):
         """Send a log message to the logging part of the UI"""
 
         if stdout:
             print(text)
 
         for line in text.split("\n"):
-            while len(self._log) > 10:
+            while len(self._log) > self.log_lines:
                 self._log.pop(0)
-            self._log.append(urwid.Text(line))
+            self._log.append(urwid.Text(indent + line))
 
         self._log.set_focus(len(self._log)-1)
 
@@ -154,7 +168,8 @@ class UI(object):
 
     def peer_update(self, group, sin, stats):
         if 'sent' in stats and 'rcvd' in stats:
-            stats['lost'] = stats['sent'] - stats['rcvd']
+            stats['lost'] = stats['sent'] - stats['ackd']
+            if stats['lost'] < 0: stats['lost'] = 0
 
         index = self._find_peer(group, sin)
         if index is None:
@@ -188,7 +203,7 @@ class UI(object):
         te = urwid.Columns(hcols)
 
         self._peers[group].append(sin)
-        self._group[group].append(te)
+        self._group[group].contents.append((te, ('pack', None)))
 
     def peer_del(self, group, sin):
         index = self._find_peer(group, sin)
@@ -197,4 +212,4 @@ class UI(object):
             return
 
         self._peers[group].pop(index)
-        self._group[group].pop(index)
+        self._group[group].contents.pop(index)

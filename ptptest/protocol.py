@@ -25,11 +25,13 @@ PTP_TYPE_YOURTS     = 9
 PTP_TYPE_PTPADDR    = 32
 PTP_TYPE_INTADDR    = 33
 PTP_TYPE_UPNP       = 34
+PTP_TYPE_SHUTDOWN   = 45
 
 # Server-client
-PTP_TYPE_CLIENTLIST = 64
-PTP_TYPE_CLIENTLEN  = 65
-PTP_TYPE_YOURADDR   = 66
+PTP_TYPE_CLIENTLIST_EXT = 64
+PTP_TYPE_CLIENTLEN      = 65
+PTP_TYPE_YOURADDR       = 66
+PTP_TYPE_CLIENTLIST_INT = 67
 
 # Client-client
 PTP_TYPE_CC         = 96
@@ -46,9 +48,11 @@ PTP_NAMES = {
         PTP_TYPE_PTPADDR: 'PTP_TYPE_PTPADDR',
         PTP_TYPE_INTADDR: 'PTP_TYPE_INTADDR',
         PTP_TYPE_UPNP: 'PTP_TYPE_UPNP',
-        PTP_TYPE_CLIENTLIST: 'PTP_TYPE_CLIENTLIST',
+        PTP_TYPE_SHUTDOWN: 'PTP_TYPE_SHUTDOWN',
+        PTP_TYPE_CLIENTLIST_EXT: 'PTP_TYPE_CLIENTLIST_EXT',
         PTP_TYPE_CLIENTLEN: 'PTP_TYPE_CLIENTLEN',
         PTP_TYPE_YOURADDR: 'PTP_TYPE_YOURADDR',
+        PTP_TYPE_CLIENTLIST_INT: 'PTP_TYPE_CLIENTLIST_INT',
         PTP_TYPE_CC: 'PTP_TYPE_CC',
 }
 
@@ -64,7 +68,7 @@ class Base(dpkt.Packet):
         l = [ "ptp_type=%d(%s)" % (t, PTP_NAMES[t]) ]
         if self.data:
             l.append('data=%s' % repr(self.data))
-        return '%s(%s)' % (self.__class__.__name__, ', '.join(l))
+        return "%s(%s)" % (self.__class__.__name__, ', '.join(l))
 
 class UInt(Base):
     size = 4
@@ -167,10 +171,12 @@ PTP_MAP = {
         PTP_TYPE_PTPADDR: Address,
         PTP_TYPE_INTADDR: Address,
         PTP_TYPE_UPNP: UInt,
+        PTP_TYPE_SHUTDOWN: UInt,
 
-        PTP_TYPE_CLIENTLIST: Address,
+        PTP_TYPE_CLIENTLIST_EXT: Address,
         PTP_TYPE_CLIENTLEN: UInt,
         PTP_TYPE_YOURADDR: Address,
+        PTP_TYPE_CLIENTLIST_INT: Address,
 
         PTP_TYPE_CC: String,
 }
