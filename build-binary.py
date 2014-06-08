@@ -32,12 +32,22 @@ from ptptest import __version__
 build_exe_options = {
     "packages": ["os"],
     "excludes": ["tkinter"],
+    "bin_excludes": ["???"],
+    "include_msvcr": True,
+    "copy_dependent_files" : True,
+}
+
+install_exe_options = {
+
 }
 
 setup(  name = "ptptest",
         version = __version__,
         description = "Point-to-point UDP tester",
-        options = {"build_exe": build_exe_options},
+        options = {
+            "build_exe": build_exe_options,
+            "install_exe": install_exe_options,
+        },
         
         executables = [
                 Executable("ptpclient"),
