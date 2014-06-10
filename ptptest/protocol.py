@@ -9,6 +9,8 @@ import struct, dpkt, exceptions, IPy
 # Parameters
 PTP_VERSION         = 1
 PTP_MTU             = 1400
+PTP_BLOB_SIZE       = 1024
+
 
 # Protocol TLV types
 # General

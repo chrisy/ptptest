@@ -9,9 +9,15 @@ each other directly via their various and often broken home routers.
 # The software.
 
 The client and server are written in Python and should run on most
-platforms. It was developed using Python 2.7 and appears to work with
+platforms. It uses Urwid to provide a pretty console-based user
+interface; this works well on all kinds of POSIX systems and also
+works with Cygwin on Windows platforms; it will also run with win32
+Python on Windows with curses support.
+
+It was developed using Python 2.7 and appears to work with
 Python 2.6. It would be very suprising if it worked with Python 3.x.
-It has some dependencies:
+
+The software has some dependencies:
 
 Python packages:
 
@@ -24,17 +30,26 @@ On Windows, if you are not using Cygwin, you may also need:
 
 > pip install cursesw
 
-Ubuntu package names:
+If using a system that has packages, you could probably use these commands
+to installed the required packages:
+
+Ubuntu:
 
 > sudo apt-get install -y python-dpkt python-eventlet python-ipy python-urwid
 
-Fedora package names:
+Fedora:
 
 > sudo yum install -y python-dpkt python-eventlet python-IPy python-urwid
 
-FreeBSD port names:
+FreeBSD:
 
-> devel/py-argparse net/py-dpkt net/py-eventlet net-mgmt/py-ipy devel/py-urwid
+> portmaster devel/py-argparse net/py-dpkt net/py-eventlet net-mgmt/py-ipy devel/py-urwid
+
+MacOS/X:
+
+On MacOS/X you can either use pip as above, or if you use MacPorts:
+
+> sudo port install py27-dpkt py27-eventlet py27-ipy py27-urwid 
 
 ## Running the client.
 
@@ -162,10 +177,19 @@ and port number.
 | 4          | String             | UUID (16 bytes)
 | 8          | Unsigned integer   | "My" timestamp
 | 9          | Unsigned integer   | "Your" timestamp
+| *Client-server* |||
 | 32         | Address            | PTP address
 | 33         | Address            | Internal address
 | 34         | Unsigned integer   | uPNP used
-| 64         | Address            | Client list entry
+| *Server-client* |||
+| 45         | Unsigned integer   | Client is shutting down
+| 64         | Address            | Client list entry (external address)
+| 65         | Unsigned integer   | Client list entry count (int+ext)
+| 66         | Unsigned integer   | Client address as seen by server
+| 67         | Address            | Client list entry (local address)
+| *Client-client* |||
+| 96         | String             | Experimental extension
+
 
 # Future work.
 

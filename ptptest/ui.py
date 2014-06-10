@@ -6,8 +6,8 @@
 UI
 """
 
-import eventlet, urwid
-from urwidutils import EventletEventLoop, Screen
+import eventlet, urwid, sys
+from urwidutils import EventletEventLoop, RawScreen, CursesScreen
 
 
 class UI(object):
@@ -56,7 +56,11 @@ class UI(object):
         self._peers['server'] = []
 
         # The screen for the UI
-        self._screen = Screen()
+        # https://docs.python.org/2/library/sys.html#sys.platform
+        if sys.platform == 'win32': # Does not include Cygwin
+            self._screen = CursesScreen()
+        else:
+            self._screen = RawScreen()
 
         # Initialize signal handlers
         self._screen.real_signal_init()
