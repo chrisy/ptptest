@@ -346,7 +346,7 @@ class Client(object):
 
     def run(self):
         # Get ourselves a UI
-        self.ui = ui.UI(client=True, parent=self)
+        self.ui = ui.UI(client=True, parent=self, force_curses=self.args.curses)
 
         self.ui.title("PTP Client version %s (protocol version %d)" %
             (ptptest.__version__, PTP_CLIENTVER), stdout=True)

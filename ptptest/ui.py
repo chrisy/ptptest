@@ -7,19 +7,20 @@ UI
 """
 
 import eventlet, urwid, sys
-from urwidutils import EventletEventLoop, RawScreen, CursesScreen
+from urwid_eventlet import EventletEventLoop
 
 
 class UI(object):
     client = False
     server = False
     parent = None
-    screen = None
     log_lines = 10
 
     _root = None
     _log = None
     _mainloop = None
+    _screen = None
+    _event_loop = None
 
     palette = [
             ('header', 'yellow', 'dark blue', 'standout'),
@@ -42,7 +43,8 @@ class UI(object):
     _peers = {}
     _group = {}
 
-    def __init__(self, client=False, server=False, parent=None):
+    def __init__(self, client=False, server=False, parent=None,
+            force_curses=False):
         super(UI, self).__init__()
 
         self.client = client
@@ -57,13 +59,16 @@ class UI(object):
 
         # The screen for the UI
         # https://docs.python.org/2/library/sys.html#sys.platform
-        if sys.platform == 'win32': # Does not include Cygwin
+        if force_curses or sys.platform == 'win32': # Does not include Cygwin
+            from curses_wrapper import CursesScreen
             self._screen = CursesScreen()
+            self._screen.set_input_timeouts(max_wait=0.1)
+            self._event_loop = None
         else:
+            from raw_wrapper import RawScreen
             self._screen = RawScreen()
-
-        # Initialize signal handlers
-        self._screen.real_signal_init()
+            self._screen.real_signal_init()
+            self._event_loop = EventletEventLoop()
 
         # GUI thread
         def uirun():
@@ -80,10 +85,17 @@ class UI(object):
                     widget=root,
                     palette=self.palette,
                     screen=self._screen,
-                    event_loop=EventletEventLoop(),
+                    event_loop=self._event_loop,
                     unhandled_input=inkey,
                     handle_mouse=False)
             self._root = root
+
+            if self._event_loop is None:
+                def draw_screen():
+                    self._mainloop.draw_screen()
+                    eventlet.spawn_after(1, draw_screen)
+
+                eventlet.spawn_after(1, draw_screen)
 
             # This runs the UI loop - it only returns when we're exiting
             self._mainloop.run()
