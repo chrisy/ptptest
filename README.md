@@ -17,6 +17,8 @@ Python on Windows with curses support.
 It was developed using Python 2.7 and appears to work with
 Python 2.6. It would be very suprising if it worked with Python 3.x.
 
+## Dependencies
+
 The software has some dependencies:
 
 Python packages:
@@ -30,8 +32,10 @@ On Windows, if you are not using Cygwin, you may also need:
 
 > pip install cursesw
 
-If using a system that has packages, you could probably use these commands
-to installed the required packages:
+## Packaged depdendencies
+
+If you are using a system that has packages, you could probably use
+these commands to install the required packages:
 
 Ubuntu:
 
@@ -73,7 +77,7 @@ to port 23456.
 
 # The architecture.
 
-This tester has its own protocol. There are two roles involved in this
+This tool has its own protocol. There are two roles involved in this
 protocol: A server and a client.
 
 ## The server.
@@ -91,10 +95,10 @@ There are some simple aspects to this coordination:
   metadata of the packet itself, such as the IP address and port number
   the packet originated from.
 
-* Publishing, by telling clients about all the clients known. Clients
-  would then start sending their data to new clients in the list. The
-  list includes the IP address and port details that PTP peers should
-  use to contact each client.
+* Publishing, by a server telling clients about all the clients known.
+  Clients would then start sending their data to new clients in the
+  list. The list includes the IP address and port details that PTP peers
+  should use to contact each client.
 
 * Purging, by removing clients that have not been seen for a while.
   When a client is being purged, further publications of the client
@@ -137,11 +141,12 @@ For our system we will do a simple checksum.
 
 # The protocol.
 
-This protocol is entirely UDP based and tries to keep every message
-within the size of the de facto MTU of the general internet, 1500 bytes,
-to limit fragmentation. To further ameliorate common MTU issues, for
-example as a result of PPPoE encapsulation, we limit our packet sizes to
-1400 bytes. UDP is considered unreliable and packet fragmentation would
+This protocol is entirely UDP based and will refuse to send any message
+larger than 1400 bytes. This size is chosen because the de-facto MTU
+of the general Internet is 1500 bytes. Overhead from tunneled access
+providers, such as those which use PPPoE, reduces this.
+
+UDP is considered unreliable and packet fragmentation would
 only increase the chances of data loss.
 
 ## Header.
@@ -162,7 +167,7 @@ Each type is comprised of one or more well-defined datatypes:
 
 * Signed integer, network order. 1, 2, 4, 8 byte numbers.
 * Unsigned integer, network order. 1, 2, 4, 8 byte numbers.
-* ASCII string.
+* Text string. Any byte stream would also use.
 * IP address, network order. Encodes address family, address
 and port number.
 
@@ -177,17 +182,17 @@ and port number.
 | 4          | String             | UUID (16 bytes)
 | 8          | Unsigned integer   | "My" timestamp
 | 9          | Unsigned integer   | "Your" timestamp
-| *Client-server* |||
+| *Client-server* ||
 | 32         | Address            | PTP address
 | 33         | Address            | Internal address
 | 34         | Unsigned integer   | uPNP used
-| *Server-client* |||
+| *Server-client* ||
 | 45         | Unsigned integer   | Client is shutting down
 | 64         | Address            | Client list entry (external address)
 | 65         | Unsigned integer   | Client list entry count (int+ext)
 | 66         | Unsigned integer   | Client address as seen by server
 | 67         | Address            | Client list entry (local address)
-| *Client-client* |||
+| *Client-client* ||
 | 96         | String             | Experimental extension
 
 
