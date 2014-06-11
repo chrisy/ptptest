@@ -92,7 +92,7 @@ class UI(object):
 
             if self._event_loop is None:
                 def draw_screen():
-                    if seld._mainloop is not None:
+                    if self._mainloop is not None:
                         self._mainloop.draw_screen()
                         eventlet.spawn_after(1, draw_screen)
 
