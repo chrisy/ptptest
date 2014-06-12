@@ -195,6 +195,53 @@ and port number.
 | *Client-client* ||
 | 96         | String             | Experimental extension
 
+# Protocol mechanisms
+
+The protocol implements some mechanisms for higher-level functionality
+such as RTT measurement and the transfer of arbitrarily large objects.
+
+## RTT measurment mechanism
+
+TODO: Describe the action: sent TSV with MYTS, other end responds
+with a message containing YOURTS.
+
+## Bulk transfer mechanism
+
+Two modes: Local client requests object or remote client sends an
+object without solicitation.
+
+Sending of object:
+
+* Sender informs receiver of transfer intent, containing details
+  such as request ID, object name, total size, block transfer size,
+  checksum and other useful data. Note this transfer must fit inside
+  a single packet.
+
+* Receiver then becomes responsible for requesting blocks from the
+  sender.
+
+* Blocks can be requested in any order, though it is expected initial
+  requests will be sequential.
+
+* All blocks except the last one will be of the same size, the
+  advertised block size. The last block may be less than this.
+
+* Receiver can send multiple requests in parallel and is responsible
+  for limiting the number of requests that are in flight. The number
+  can increase/decrease depending on delay and throughput (aka, sliding
+  window).
+
+* Receiver is responsible for managing retries of blocks that did not
+  arrive. Receiver is responsible for giving up if individual blocks
+  fail to arrive after an excessive number of retries.
+
+* Receiver must inform the sender when reception is complete so that the
+  sender can clean up its state.
+
+* If the sender does not hear from the receiver regarding a transfer
+  after some period of time it may forget any state is has about the
+  transfer and refuse future requests regarding the transfer.
+
 
 # Future work.
 
@@ -237,6 +284,8 @@ In no particular order:
 * We have checksums. We should probably check them!
 
 * Distribute 'binary' versions for Win32 and MacOS/X.
+
+* Transfers of objects larger than a packet will carry, such as files.
 
 
 
