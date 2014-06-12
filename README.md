@@ -19,11 +19,12 @@ Python 2.6. It would be very suprising if it worked with Python 3.x.
 
 ## Dependencies
 
-The software has some dependencies:
+The software has some dependencies.
+
 
 Python packages:
 
-> pip install argparse dpkt eventlet IPy urwid
+> pip install argparse dpkt eventlet IPy urwid pystun
 
 Pip doesn't always want to install dpkt, but dpkt-fix seems to install,
 and work, fine.
@@ -35,25 +36,31 @@ On Windows, if you are not using Cygwin, you may also need:
 ## Packaged depdendencies
 
 If you are using a system that has packages, you could probably use
-these commands to install the required packages:
+these commands to install the required packages.
 
-Ubuntu:
+However, `pystun` may be esoteric enough to not be packaged. To work
+around this, it's available as a sub-module in the Git repository.
+To fetch it, use `git submodule init && git submodule update`.
+
+
+### Ubuntu
 
 > sudo apt-get install -y python-dpkt python-eventlet python-ipy python-urwid
 
-Fedora:
+### Fedora
 
 > sudo yum install -y python-dpkt python-eventlet python-IPy python-urwid
 
-FreeBSD:
+### FreeBSD
 
 > portmaster devel/py-argparse net/py-dpkt net/py-eventlet net-mgmt/py-ipy devel/py-urwid
 
-MacOS/X:
+### MacOS/X
 
-On MacOS/X you can either use pip as above, or if you use MacPorts:
+On MacOS/X you can either use `pip` as above, or if you use MacPorts:
 
 > sudo port install py27-dpkt py27-eventlet py27-ipy py27-urwid 
+
 
 ## Running the client.
 
@@ -62,7 +69,8 @@ The runtime syntax is along the lines of:
 > ./ptpclient --server=[ip address] --port=[port number] --debug
 
 Debug defaults to off, which isn't very interesting at the moment.
-Address and port default to the localhost and port 23456.
+Address and port default to the localhost and port 23456. You can
+use `--help` to see other options available.
 
 ## Running the server.
 
@@ -72,7 +80,7 @@ The runtime syntax is along the lines of:
 
 Debug defaults to off, which isn't very interesting at the moment.
 Address and port default to the binding to any address and listening
-to port 23456.
+to port 23456. You can use `--help` to see other options available.
 
 
 # The architecture.
@@ -250,7 +258,11 @@ In no particular order:
 * Add some uPNP hooks. We want to be able to test interactions with
   port forwarding on an IGD.
 
-* Use STUN.
+* Provide a mechanism for the server to relay packets between clients
+  if their NAT mode doesn't allow direct delivery. This may require
+  distribution of NAT modes for each client to other clients.
+
+* Use the results from STUN to determine the PtP mechanism to use.
 
 * Add the option to seperate server and client-side sockets.
 
