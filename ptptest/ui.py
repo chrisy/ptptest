@@ -21,6 +21,9 @@ class UI(object):
     _mainloop = None
     _screen = None
     _event_loop = None
+    _address = None
+    _stuntype = None
+    _stunaddress = None
 
     palette = [
             ('header', 'yellow', 'dark blue', 'standout'),
@@ -145,10 +148,29 @@ class UI(object):
         log = urwid.BoxAdapter(log, self.log_lines)
         log = urwid.AttrMap(log, 'log')
 
-        footer = urwid.Pile([
+        log_footer = urwid.Pile([
             #urwid.AttrMap(urwid.Divider(div_char=u'\u2500'), 'log-hdr'),
             urwid.AttrMap(urwid.Text("Log output"), 'log-hdr'),
             log])
+
+        self._address = urwid.Text("")
+        self._stuntype = urwid.Text("")
+        self._stunaddress = urwid.Text("")
+
+        self.set_address('Unknown', None)
+        self.set_stun('Unknown', 'Unknown', None)
+
+        status_footer = urwid.Pile([
+            urwid.AttrMap(urwid.Text("Status"), 'log-hdr'),
+            self._address,
+            self._stuntype,
+            self._stunaddress,
+        ])
+
+        footer = urwid.Columns([
+            ('weight', 4, log_footer),
+            ('weight', 2, status_footer),
+        ])
         footer = urwid.AttrMap(footer, 'footer')
 
         return urwid.Frame(body, header=header, footer=footer)
@@ -230,3 +252,17 @@ class UI(object):
 
         self._peers[group].pop(index)
         self._group[group].contents.pop(index)
+
+    def set_address(self, address, port):
+        addr = str(address)
+        if port:
+            addr = "%s:%d" % (addr, int(port))
+        self._address.set_text("Address: %s" % addr)
+
+    def set_stun(self, nat_type, external_ip, external_port):
+        self._stuntype.set_text("NAT type: %s" % str(nat_type))
+        addr = str(external_ip)
+        #if external_port:
+        #    addr = "%s:%d" % (addr, int(external_port))
+        self._stunaddress.set_text("NAT address: %s" % addr)
+

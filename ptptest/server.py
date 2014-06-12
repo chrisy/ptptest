@@ -39,9 +39,13 @@ class Server(object):
         super(Server, self).__init__()
         self.args = args
 
+        if 'stun' in args and args.stun:
+            import stunloop
+            self.stun = stunloop.Stun()
+
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        #print "Binding server to %s port %d" % (args.server, args.port)
+        if self.args.debug: print "Binding server to %s port %d" % (args.server, args.port)
         s.bind((args.server, args.port))
         (self.addr, self.port) = s.getsockname()
         self.sock = s
@@ -215,8 +219,13 @@ class Server(object):
         self.ui.title("PTP Server version %s (protocol version %d)" %
                 (ptptest.__version__, PTP_SERVERVER), stdout=True)
         self.ui.log("Our socket is %s %s" % (self.addr, self.port), stdout=True)
+        self.ui.set_address(self.addr, self.port)
 
         eventlet.spawn(self._read_loop)
+
+        if self.stun:
+            self.stun.set_ui(self.ui)
+            eventlet.spawn(self.stun.run)
 
         client_ts = 0
         while self.running:

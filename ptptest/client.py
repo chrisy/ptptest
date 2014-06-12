@@ -34,6 +34,7 @@ class Client(object):
     clients = {}
     server_seq = 0
     ui = None
+    stun = None
 
     _slock = eventlet.semaphore.Semaphore()
     _clock = eventlet.semaphore.Semaphore()
@@ -41,6 +42,10 @@ class Client(object):
     def __init__(self, args):
         super(Client, self).__init__()
         self.args = args
+
+        if 'stun' in args and args.stun:
+            import stunloop
+            self.stun = stunloop.Stun()
 
         # Discover our local address
         # TODO: Re-do this periodically, in case it changes
@@ -124,6 +129,7 @@ class Client(object):
                 new_clients[-1] = p.data
             elif p.ptp_type == protocol.PTP_TYPE_YOURADDR:
                 self.ui.log("Server sees us as %s" % repr(p.data))
+                self.ui.set_address(p.data[0], p.data[1])
 
         self.ui.peer_update('server', server['sin'], server['stats'])
 
@@ -353,6 +359,10 @@ class Client(object):
         self.ui.log("Our socket is %s %s" % (self.addr, self.port), stdout=True)
 
         eventlet.spawn(self._read_loop)
+
+        if self.stun:
+            self.stun.set_ui(self.ui)
+            eventlet.spawn(self.stun.run)
 
         # Add our servers to the peer list
         with self._slock:
