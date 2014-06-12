@@ -1,0 +1,3 @@
+[submodule "pystun"]
+	path = pystun
+	url = https://github.com/jtriley/pystun.git
