@@ -247,15 +247,8 @@ Sending of object:
 
 In no particular order:
 
-* Currently the client does not try to detect if any other clients are
-  on its local network; it should.
-
 * Add some uPNP hooks. We want to be able to test interactions with
   port forwarding on an IGD.
-
-* Add a mechanism for the client to detect its own external IP address.
-  This may be useful when looking for local clients, though not reliably
-  in a world of increasing CGN.
 
 * Use STUN.
 
@@ -269,17 +262,11 @@ In no particular order:
 
 * Track RTT's of last N packets so we can measure average and jitter.
 
-* The client should summarize the clients it talks to as well as those
-  it expects to hear from but doesn't.
-
 * Optionally have the client tell the server about the clients it was and
   was not able to communicate with.
 
 * Have the server summarize its analytics, perhaps publishing a web page
   for it.
-
-* Improve the UI - some sort of curses based thing perhaps. Show current
-  client/servers we're taking to and the stats for each.
 
 * We have checksums. We should probably check them!
 
