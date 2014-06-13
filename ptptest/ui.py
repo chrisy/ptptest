@@ -6,7 +6,7 @@
 UI
 """
 
-import eventlet, urwid, sys
+import eventlet, urwid, sys, signal
 from urwid_eventlet import EventletEventLoop
 
 
@@ -73,6 +73,15 @@ class UI(object):
             self._screen.real_signal_init()
             self._event_loop = EventletEventLoop()
 
+        def sigint(signal, frame):
+            if self._mainloop is not None:
+                self._mainloop.event_loop.running = False
+
+        try: signal.signal(signal.SIGINT, sigint)
+        except: pass
+        try: signal.signal(signal.CTRL_C_EVENT, sigint)
+        except: pass
+
         # GUI thread
         def uirun():
 
@@ -104,12 +113,21 @@ class UI(object):
             # This runs the UI loop - it only returns when we're exiting
             self._mainloop.run()
 
-            # Remove this, to stop further interaction
+            # Remove signals
+            self._screen.real_signal_restore()
+            try: signal.signal(signal.SIGINT, signal.SIG_DFL)
+            except: pass
+            try: signal.signal(signal.CTRL_C_EVENT, signal.SIG_DFL)
+            except: pass
+
+            # Remove these, to stop further interaction
             self._mainloop = None
+            self._screen = None
 
             # Signal the parent that we're stopping
-            if parent is not None:
-                parent.running = False
+            if self.parent is not None:
+                self.parent.running = False
+                self.parent = None
 
         # Start the UI thread
         eventlet.spawn(uirun)
