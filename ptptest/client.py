@@ -4,6 +4,11 @@
 # 
 """PTP Client"""
 
+import sys
+if sys.platform == 'win32':
+    import win32hacks
+    win32hacks.install_hacks()
+
 import eventlet, eventlet.debug
 
 # Don't patch 'os' because it breaks nonblocking os.read
