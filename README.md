@@ -1,4 +1,4 @@
-# Point-to-point UDP tester.
+# Point-to-point UDP tester
 
 This is a simple tool to test some basic and common point-to-point
 network protocol techniques. Ostensibly this is to test the various
@@ -6,7 +6,7 @@ ways that peers in a PTP mesh can discover and communicate with
 each other directly via their various and often broken home routers.
 
 
-# The software.
+# The software
 
 The client and server are written in Python and should run on most
 platforms. It uses Urwid to provide a pretty console-based user
@@ -36,10 +36,10 @@ On Windows, if you are not using Cygwin, you may also need:
 ## Packaged dependencies
 
 If you are using a system that has packages, you could probably use
-these commands to install the required packages.
+these commands below to install the required packages.
 
 However, `pystun` and `bson` may be esoteric enough to not be packaged. To 
-ork around this, they are available as sub-modules in the Git repository. To
+work around this, they are available as sub-modules in the Git repository. To
 fetch them, use `git submodule init && git submodule update`.
 
 
@@ -62,36 +62,73 @@ On MacOS/X you can either use `pip` as above, or if you use MacPorts:
 > sudo port install py27-dpkt py27-eventlet py27-ipy py27-urwid 
 
 
-## Running the client.
+## Running the client
 
 The runtime syntax is along the lines of:
 
-> ./ptpclient --server=[ip address] --port=[port number] --debug
+```
+usage: ptpclient [-h] [-s <address>] [-p <port>] [--nostun] [-d] [--hexdump]
+                 [--curses] [--loglines <int>]
+
+PTP Mesh Client
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -s <address>, --server <address>
+                        The address of the server [127.0.0.1]
+  -p <port>, --port <port>
+                        The port to use on the server [23456]
+  --nostun              Don't use STUN
+  -d, --debug           Enable debugging output
+  --hexdump             Enable hexdump debugging output
+  --curses              Force use of curses
+  --loglines <int>      Number of lines high to for the log window [10]
+```
 
 Debug defaults to off, which isn't very interesting at the moment.
 Address and port default to the localhost and port 23456. You can
 use `--help` to see other options available.
 
-## Running the server.
+## Running the server
 
 The runtime syntax is along the lines of:
 
-> ./ptpserver --server=[ip address] --port=[port number] --debug
+```
+usage: ptpserver [-h] [-s <address>] [-p <port>] [--nostun] [-d] [--hexdump]
+                 [--curses] [--loglines <int>]
+
+PTP Mesh Server
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -s <address>, --server <address>
+                        The address to bind to for the server [0.0.0.0]
+  -p <port>, --port <port>
+                        The port to use for the server [23456]
+  --nostun              Don't use STUN
+  -d, --debug           Enable debugging output
+  --hexdump             Enable hexdump debugging output
+  --curses              Force use of curses
+  --loglines <int>      Number of lines high to for the log window [10]
+```
 
 Debug defaults to off, which isn't very interesting at the moment.
 Address and port default to the binding to any address and listening
 to port 23456. You can use `--help` to see other options available.
 
 
-# The architecture.
+# The architecture
 
 This tool has its own protocol. There are two roles involved in this
 protocol: A server and a client.
 
-## The server.
+## The server
 
 There is generally a small set of servers involved in this type of PTP,
-and in many cases just one. The servers job is to coordinate clients.
+and in many cases just one. The servers primary job is to coordinate
+clients though it is also possible that it can also be a client and
+participate in client-focused PtP exchanges.
+
 There are some simple aspects to this coordination:
 
 * Discovery, by a client announcing itself to a server. The client
@@ -117,10 +154,10 @@ There are some simple aspects to this coordination:
   and any related performance metrics such as measured delay between
   peers.
 
-## The client.
+## The client
 
-There can be many clients. Their role is typically to distribute their
-state or some other data to other clients.
+There can be and generally will be many clients. The client role is
+typically to distribute its state or other data to other clients.
 
 * Registration, by informing some central server or servers of our
   presence. Typically the client includes some identification data,
@@ -133,11 +170,14 @@ state or some other data to other clients.
   Similarly, if we don't receive a response from a server, we might try
   a different server, or report that communications are unavailable.
 
-* Publishing, by sending data to other clients that we know about.
+* Publishing, by sending data to other clients that we know about. This
+  is the primary means for data transfer, either by the unsolicitced
+  sending of information or using it to request details from another
+  client (or a set of clients).
 
-* Analytics, by including timestamps in the data.
+* Analytics, by including timestamps and other metrics in the data.
 
-## Data integrity.
+## Data integrity
 
 Especially in subscription services, the packets containing this data
 would be wrapped in some sort of protection, either to conceal
@@ -147,7 +187,7 @@ a simple cryptographic signature is sufficient to trust the integrity
 of the data and the keys for this can be distributed by the server.
 For our system we will do a simple checksum.
 
-# The protocol.
+# The protocol
 
 This protocol is entirely UDP based and will refuse to send any message
 larger than 1400 bytes. This size is chosen because the de-facto MTU
@@ -157,19 +197,19 @@ providers, such as those which use PPPoE, reduces this.
 UDP is considered unreliable and packet fragmentation would
 only increase the chances of data loss.
 
-## Header.
+## Header
 
-The packet header is minimalist. 1-byte protocol version number,
-2 byte checksum and then a stream of TLVs.
+The packet header is minimalist with just a 1-byte protocol version number
+ahed of the stream of TLVs. A 2 byte checksum is appended after the TLVs.
 
-## TLV.
+## TLV
 
 The UDP packets are binary-encoded TLV streams. Each TLV is encoded
 as an 8-bit value type indicator, an 8-bit value length indicator and
 then a variable length number of value bytes, indicated by the length
 indicator.
 
-### Base data types.
+### Base data types
 
 Each data type is comprised of one or more well-defined datatypes:
 
@@ -181,7 +221,7 @@ and port number.
 * JSON object. ASCII-encoded JSON objects.
 * BSON object.
 
-### Value types.
+### Value types
 
 The TLV decoder will always decode values by looking up the value type
 in a table that maps each value type to a specific data type; the table
@@ -223,8 +263,13 @@ with a message containing YOURTS.
 
 ## Bulk transfer mechanism
 
-Two modes: Local client requests object or remote client sends an
-object without solicitation.
+Two modes: Local client requests object and the remote responds to that
+request, or a remote client sends an object without solicitation.
+
+The receiving client is responsible for managing the transfer by requesting
+outstanding blocks. Currently this targets a specific sender though a
+later iteration may discover which clients have the blocks required and
+request these blocks from any such client that can satisfy the request.
 
 Sending of object:
 
@@ -256,10 +301,10 @@ Sending of object:
 
 * If the sender does not hear from the receiver regarding a transfer
   after some period of time it may forget any state is has about the
-  transfer and refuse future requests regarding the transfer.
+  transfer and ignore future requests regarding the transfer.
 
 
-# Future work.
+# Future work
 
 In no particular order:
 
@@ -294,7 +339,7 @@ In no particular order:
 
 
 
-# License.
+# License
 
 The MIT License (MIT)
 
