@@ -1,11 +1,11 @@
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
 # 
 # Copyright (c) 2014 Chris Luke <chrisy@flirble.org>
 """STUN support"""
 
-import sys, eventlet
+import os, sys, eventlet
 
-sys.path.insert(0, 'pystun')
+sys.path.insert(0, os.path.dirname(__file__)+'/../pystun')
 import stun
 
 class Stun(object):

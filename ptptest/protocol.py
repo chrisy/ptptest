@@ -1,10 +1,12 @@
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
 # 
 # Copyright (c) 2014 Chris Luke <chrisy@flirble.org>
 # 
 """PTP TLV Protocol"""
 
-import struct, dpkt, exceptions, IPy
+import struct, dpkt, exceptions, IPy, json
+import bson_wrapper, bson
+import sys
 
 # Parameters
 PTP_VERSION         = 1
@@ -27,6 +29,7 @@ PTP_TYPE_YOURTS     = 9
 PTP_TYPE_PTPADDR    = 32
 PTP_TYPE_INTADDR    = 33
 PTP_TYPE_UPNP       = 34
+PTP_TYPE_META       = 35
 PTP_TYPE_SHUTDOWN   = 45
 
 # Server-client
@@ -50,6 +53,7 @@ PTP_NAMES = {
         PTP_TYPE_PTPADDR: 'PTP_TYPE_PTPADDR',
         PTP_TYPE_INTADDR: 'PTP_TYPE_INTADDR',
         PTP_TYPE_UPNP: 'PTP_TYPE_UPNP',
+        PTP_TYPE_META: 'PTP_TYPE_META',
         PTP_TYPE_SHUTDOWN: 'PTP_TYPE_SHUTDOWN',
         PTP_TYPE_CLIENTLIST_EXT: 'PTP_TYPE_CLIENTLIST_EXT',
         PTP_TYPE_CLIENTLEN: 'PTP_TYPE_CLIENTLEN',
@@ -91,7 +95,7 @@ class UInt(Base):
         return self.size
 
     def __str__(self):
-        return struct.pack('!%s' % self._stof(), int(self.data))
+        return self.pack_hdr() + struct.pack('!%s' % self._stof(), int(self.data))
 
 
 class Int(Base):
@@ -113,7 +117,7 @@ class Int(Base):
         return self.size
 
     def __str__(self):
-        return struct.pack('!%s' % self._stof(), int(self.data))
+        return self.pack_hdr() + struct.pack('!%s' % self._stof(), int(self.data))
 
 
 class String(Base):
@@ -144,9 +148,6 @@ def unpack_sin(data):
 
 
 class Address(Base):
-    __hdr__ = (
-    )
-
     def unpack(self, buf):
         dpkt.Packet.unpack(self, buf)
         self.data = unpack_sin(self.data)
@@ -158,6 +159,30 @@ class Address(Base):
 
     def __str__(self):
         return self.pack_hdr() + pack_sin(self.data)
+
+
+class JSON(Base):
+    def unpack(self, buf):
+        super(JSON, self).unpack(buf)
+        self.data = json.loads(self.data)
+
+    def __len__(self):
+        return len(str(self))
+
+    def __str__(self):
+        return self.pack_hdr() + json.dumps(self.data)
+
+
+class BSON(Base):
+    def unpack(self, buf):
+        super(BSON, self).unpack(buf)
+        self.data = bson.loads(self.data)
+
+    def __len__(self):
+        return len(str(self))
+
+    def __str__(self):
+        return self.pack_hdr() + bson.dumps(self.data)
 
 
 PTP_MAP = {
@@ -173,6 +198,7 @@ PTP_MAP = {
         PTP_TYPE_PTPADDR: Address,
         PTP_TYPE_INTADDR: Address,
         PTP_TYPE_UPNP: UInt,
+        PTP_TYPE_META: JSON,
         PTP_TYPE_SHUTDOWN: UInt,
 
         PTP_TYPE_CLIENTLIST_EXT: Address,

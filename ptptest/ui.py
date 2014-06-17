@@ -47,13 +47,16 @@ class UI(object):
     _group = {}
 
     def __init__(self, client=False, server=False, parent=None,
-            force_curses=False):
+            force_curses=False, log_lines=None):
         super(UI, self).__init__()
 
         self.client = client
         self.server = server
         self.parent = parent
 
+        if log_lines is not None:
+            self.log_lines = log_lines
+            
         # Initialize the UI elements
         root = self._buildui()
 
@@ -184,6 +187,7 @@ class UI(object):
             self._stuntype,
             self._stunaddress,
         ])
+        status_footer = urwid.AttrMap(status_footer, 'log')
 
         footer = urwid.Columns([
             ('weight', 4, log_footer),

@@ -24,23 +24,23 @@ The software has some dependencies.
 
 Python packages:
 
-> pip install argparse dpkt eventlet IPy urwid pystun
+> pip install argparse dpkt eventlet IPy urwid pystun bson
 
-Pip doesn't always want to install dpkt, but dpkt-fix seems to install,
+Pip doesn't always want to install `dpkt`, but `dpkt-fix` seems to install,
 and work, fine.
 
 On Windows, if you are not using Cygwin, you may also need:
 
 > pip install cursesw
 
-## Packaged depdendencies
+## Packaged dependencies
 
 If you are using a system that has packages, you could probably use
 these commands to install the required packages.
 
-However, `pystun` may be esoteric enough to not be packaged. To work
-around this, it's available as a sub-module in the Git repository.
-To fetch it, use `git submodule init && git submodule update`.
+However, `pystun` and `bson` may be esoteric enough to not be packaged. To 
+ork around this, they are available as sub-modules in the Git repository. To
+fetch them, use `git submodule init && git submodule update`.
 
 
 ### Ubuntu
@@ -165,43 +165,51 @@ The packet header is minimalist. 1-byte protocol version number,
 ## TLV.
 
 The UDP packets are binary-encoded TLV streams. Each TLV is encoded
-as an 8-bit type indicator, an 8-bit length indicator and then a
-variable length number of value bytes, indicated by the length
+as an 8-bit value type indicator, an 8-bit value length indicator and
+then a variable length number of value bytes, indicated by the length
 indicator.
 
 ### Base data types.
 
-Each type is comprised of one or more well-defined datatypes:
+Each data type is comprised of one or more well-defined datatypes:
 
 * Signed integer, network order. 1, 2, 4, 8 byte numbers.
 * Unsigned integer, network order. 1, 2, 4, 8 byte numbers.
 * Text string. Any byte stream would also use.
 * IP address, network order. Encodes address family, address
 and port number.
+* JSON object. ASCII-encoded JSON objects.
+* BSON object.
 
 ### Value types.
 
-| Value type | Data type          | Description
-| ---------- | ------------------ | -----------
-| 0          | Unsigned integer   | Protocol version indicator
-| 1          | Unsigned integer   | Client version indicator
-| 2          | Unsigned integer   | Server version indicator
-| 3          | Unsigned integer   | Sequence counter
-| 4          | String             | UUID (16 bytes)
-| 8          | Unsigned integer   | "My" timestamp
-| 9          | Unsigned integer   | "Your" timestamp
-| *Client-server* ||
-| 32         | Address            | PTP address
-| 33         | Address            | Internal address
-| 34         | Unsigned integer   | uPNP used
-| *Server-client* ||
-| 45         | Unsigned integer   | Client is shutting down
-| 64         | Address            | Client list entry (external address)
-| 65         | Unsigned integer   | Client list entry count (int+ext)
-| 66         | Unsigned integer   | Client address as seen by server
-| 67         | Address            | Client list entry (local address)
-| *Client-client* ||
-| 96         | String             | Experimental extension
+The TLV decoder will always decode values by looking up the value type
+in a table that maps each value type to a specific data type; the table
+below reflects this mapping.
+
+| Value type | Value type name          | Data type          | Description
+| ---------- | ------------------------ | ------------------ | -----------
+| 0          | PTP_TYPE_PROTOVER        | Unsigned integer   | Protocol version indicator
+| 1          | PTP_TYPE_SERVERVER       | Unsigned integer   | Server version indicator
+| 2          | PTP_TYPE_CLIENTVER       | Unsigned integer   | Client version indicator
+| 3          | PTP_TYPE_SEQUENCE        | Unsigned integer   | Sequence counter
+| 4          | PTP_TYPE_UUID            | String             | UUID (16 bytes)
+| 8          | PTP_TYPE_MYTS            | Unsigned integer   | "My" timestamp
+| 9          | PTP_TYPE_YOURTS          | Unsigned integer   | "Your" timestamp
+| *Client-server* |||
+| 32         | PTP_TYPE_PTPADDR         | Address            | PTP address
+| 33         | PTP_TYPE_INTADDR         | Address            | Internal address
+| 34         | PTP_TYPE_UPNP            | Unsigned integer   | uPNP used
+| 35         | PTP_TYPE_META            | JSON               | Various metadata
+| 45         | PTP_TYPE_SHUTDOWN        | Unsigned integer   | Client is shutting down
+| *Server-client* |||
+| 64         | PTP_TYPE_CLIENTLIST_EXT  | Address            | Client list entry (external address)
+| 65         | PTP_TYPE_CLIENTLEN       | Unsigned integer   | Client list entry count (int+ext)
+| 66         | PTP_TYPE_YOURADDR        | Unsigned integer   | Client address as seen by server
+| 67         | PTP_TYPE_CLIENTLIST_INT  | Address            | Client list entry (local address)
+| *Client-client* |||
+| 96         | PTP_TYPE_CC              | String             | Experimental extension
+
 
 # Protocol mechanisms
 

@@ -1,3 +1,6 @@
 [submodule "pystun"]
 	path = pystun
 	url = https://github.com/jtriley/pystun.git
+[submodule "bson"]
+	path = bson
+	url = https://github.com/martinkou/bson.git

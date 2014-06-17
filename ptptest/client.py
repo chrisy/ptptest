@@ -1,10 +1,10 @@
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
 # 
 # Copyright (c) 2014 Chris Luke <chrisy@flirble.org>
 # 
 """PTP Client"""
 
-import sys
+import sys, uuid, copy
 if sys.platform == 'win32':
     import win32hacks
     win32hacks.install_hacks()
@@ -20,7 +20,7 @@ from eventlet.green import socket
 from eventlet.green import time
 
 import __init__ as ptptest
-import protocol, hexdump, uuid, ui
+import protocol, hexdump, ui
 
 PTP_CLIENTVER       = 2
 
@@ -220,6 +220,13 @@ class Client(object):
                     data=protocol.UInt(size=8, data=int(time.time()*2**32)))
             l.data.append(t)
 
+        tmp = copy.deepcopy(self.servers)
+        for k in tmp:
+            if 'uuid' in tmp[k]:
+                del(tmp[k]['uuid'])
+        t = protocol.TLV(type=protocol.PTP_TYPE_META, data=protocol.JSON(data=tmp))
+        l.data.append(t)
+
         packet = l.pack()
         if len(packet) > protocol.PTP_MTU: # bad
             self.ui.log("Ignoring attempt to send %d bytes to servers. MTU is %d" % (len(packet), protocol.PTP_MTU))
@@ -357,7 +364,8 @@ class Client(object):
 
     def run(self):
         # Get ourselves a UI
-        self.ui = ui.UI(client=True, parent=self, force_curses=self.args.curses)
+        self.ui = ui.UI(client=True, parent=self, force_curses=self.args.curses,
+            log_lines=self.args.log_lines)
 
         self.ui.title("PTP Client version %s (protocol version %d)" %
             (ptptest.__version__, PTP_CLIENTVER), stdout=True)

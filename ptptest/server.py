@@ -1,4 +1,4 @@
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
 # 
 # Copyright (c) 2014 Chris Luke <chrisy@flirble.org>
 """PTP Server"""
@@ -91,6 +91,9 @@ class Server(object):
             elif p.ptp_type == protocol.PTP_TYPE_SHUTDOWN:
                 # Client is going away!
                 return False
+            elif p.ptp_type == protocol.PTP_TYPE_META:
+                meta = p.data
+                self.ui.log("Meta received: '%s'" % repr(meta))
 
         self.ui.peer_update('client', client['sin'], client['stats'])
 
@@ -220,7 +223,8 @@ class Server(object):
 
     def run(self):
         # Spawn a UI
-        self.ui = ui.UI(server=True, parent=self)
+        self.ui = ui.UI(server=True, parent=self, force_curses=self.args.curses,
+            log_lines=self.args.log_lines)
 
         self.ui.title("PTP Server version %s (protocol version %d)" %
                 (ptptest.__version__, PTP_SERVERVER), stdout=True)

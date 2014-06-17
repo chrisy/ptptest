@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
 #
 # The MIT License (MIT)
 # 
@@ -36,14 +36,20 @@ debug = False
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="PTP Mesh Server")
     p.add_argument('-s', '--server', metavar='<address>', type=str,
-            help="The address to bind to for the server", default="0.0.0.0")
+            help="The address to bind to for the server [%(default)s]",
+            default="0.0.0.0")
     p.add_argument('-p', '--port', metavar='<port>', type=int,
-            help="The port to use for the server", default=23456)
-    p.add_argument('--stun', action='store_true', help="Use STUN")
+            help="The port to use for the server [%(default)s]",
+            default=23456)
+    p.add_argument('--nostun', action='store_true', help="Don't use STUN",
+            dest='stun', default=True)
 
     p.add_argument('-d', '--debug', action='store_true', help="Enable debugging output")
     p.add_argument('--hexdump', action='store_true', help="Enable hexdump debugging output")
     p.add_argument('--curses', action='store_true', help="Force use of curses")
+    p.add_argument('--loglines', metavar='<int>', type=int, dest='log_lines',
+            help="Number of lines high to for the log window [%(default)s]",
+            default=10)
 
     args = p.parse_args()
     debug = args.debug
