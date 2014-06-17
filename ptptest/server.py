@@ -63,6 +63,9 @@ class Server(object):
         if l is None:
             self.ui.log("Client packet from %s failed to parse!" % repr(sin))
             return False
+        if l.buf_csum is None or l.buf_csum != l.csum:
+            self.ui.log("Client packet from %s has a bad checksum! %d %d" % (repr(sin), l.buf_csum, l.csum))
+            return False
 
         client['ts'] = time.time()
         client['stats']['rcvd'] += 1
@@ -250,7 +253,7 @@ class Server(object):
                 remove = []
                 for k in self.clients:
                     client = self.clients[k]
-                    if client['ts'] + 30 < ts:
+                    if ts not in client or client['ts'] + 30 < ts:
                         remove.append(k)
                 for k in remove:
                     self.ui.log("Expiring client %s" % k)

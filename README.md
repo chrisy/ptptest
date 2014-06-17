@@ -288,8 +288,6 @@ In no particular order:
 * Have the server summarize its analytics, perhaps publishing a web page
   for it.
 
-* We have checksums. We should probably check them!
-
 * Distribute 'binary' versions for Win32 and MacOS/X.
 
 * Transfers of objects larger than a packet will carry, such as files.

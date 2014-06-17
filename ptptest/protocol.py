@@ -243,12 +243,22 @@ class TLV(dpkt.Packet):
 class PTP(dpkt.Packet):
     __hdr__ = (
         ('version', 'B', PTP_VERSION),
-        ('sum', 'H', 0)
     )
     data = []
+    buf_csum = None
 
     def unpack(self, buf):
+        # Extract and remove the checksum from the end
+        self.csum = struct.unpack('!H', buf[-2:])[0]
+        buf = buf[:-2]
+
+        # Check the checksum - someone else can complain if it's wrong
+        self.buf_csum = dpkt.in_cksum(buf)
+
+        # Unpack the header
         dpkt.Packet.unpack(self, buf)
+
+        # Now process the TLV's
         buf = self.data
         l = []
         while buf:
@@ -258,11 +268,10 @@ class PTP(dpkt.Packet):
         self.data = l
 
     def __len__(self):
-        return self.__hdr_len__ + sum(map(len, self.data))
+        return self.__hdr_len__ + sum(map(len, self.data)) + 2
 
     def __str__(self):
         data = ''.join(map(str, self.data))
-        if not self.sum:
-            self.sum = dpkt.in_cksum(self.pack_hdr() + data)
-        return self.pack_hdr() + data
+        csum = dpkt.in_cksum(self.pack_hdr() + data)
+        return self.pack_hdr() + data + struct.pack('!H', csum)
 

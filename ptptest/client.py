@@ -97,6 +97,9 @@ class Client(object):
         if l is None:
             self.ui.log("Server packet from %s failed to parse!" % repr(sin))
             return False
+        if l.buf_csum is None or l.buf_csum != l.csum:
+            self.ui.log("Server packet from %s has a bad checksum!" % repr(sin))
+            return False
 
         server['ts'] = time.time()
         server['stats']['rcvd'] += 1
@@ -251,6 +254,9 @@ class Client(object):
         l = protocol.PTP(buf)
         if l is None:
             self.ui.log("Client packet from %s failed to parse!" % repr(sin))
+            return False
+        if l.buf_csum is None or l.buf_csum != l.csum:
+            self.ui.log("Client packet from %s has a bad checksum!" % repr(sin))
             return False
 
         client['ts'] = time.time()
