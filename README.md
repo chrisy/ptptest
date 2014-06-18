@@ -116,6 +116,7 @@ Debug defaults to off, which isn't very interesting at the moment.
 Address and port default to the binding to any address and listening
 to port 23456. You can use `--help` to see other options available.
 
+![PTP Server screen shot](doc/images/ptpserver-0.2.png)
 
 # The architecture
 
