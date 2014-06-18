@@ -89,6 +89,8 @@ Debug defaults to off, which isn't very interesting at the moment.
 Address and port default to the localhost and port 23456. You can
 use `--help` to see other options available.
 
+![PTP Client screen shot](doc/images/ptpclient-0.2.png)
+
 ## Running the server
 
 The runtime syntax is along the lines of:
