@@ -253,7 +253,7 @@ class Server(object):
                 remove = []
                 for k in self.clients:
                     client = self.clients[k]
-                    if ts not in client or client['ts'] + 30 < ts:
+                    if 'ts' not in client or client['ts'] + 30 < ts:
                         remove.append(k)
                 for k in remove:
                     self.ui.log("Expiring client %s" % k)
