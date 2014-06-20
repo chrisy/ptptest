@@ -1,6 +1,8 @@
 [submodule "pystun"]
 	path = pystun
 	url = https://github.com/jtriley/pystun.git
+	ignore = dirty
 [submodule "bson"]
 	path = bson
 	url = https://github.com/martinkou/bson.git
+	ignore = dirty

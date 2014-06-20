@@ -6,7 +6,7 @@
 import sys
 
 def noop1(dummy1):
-	pass
+    pass
 
 def install_hacks():
     import signal
