@@ -4,5 +4,5 @@
 	ignore = dirty
 [submodule "bson"]
 	path = bson
-	url = https://github.com/martinkou/bson.git
-	ignore = dirty
+	url = git@github.com:chrisy/bson.git
+
